@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Logs</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="logs" data-title="Logs">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var page = document.getElementById('page');
+  var health = null, entries = [], healthError = null;
+  var filters = { level: 'all', source: 'all', q: '' };
+
+  /* The names people use, not the keys the API uses. */
+  var NAMES = {
+    supabase: 'Database',
+    paystack: 'Paystack',
+    payhero: 'M-Pesa (PayHero)',
+    payments: 'Deposits in flight'
+  };
+  var STATE = {
+    live: 'live', warn: 'check', auth: 'key', down: 'down', off: 'not set'
+  };
+
+  async function load(quiet) {
+    if (!quiet) page.innerHTML = A.loadingBlock('Checking services');
+
+    /* The two calls are independent: a failing health probe must not
+       hide the log that would explain it. */
+    var results = await Promise.all([
+      A.data.health().then(function (h) { healthError = null; return h; },
+                           function (e) { healthError = e.message; return null; }),
+      A.data.logs(filters).then(function (l) { return l; }, function () { return null; })
+    ]);
+
+    health = results[0];
+    if (results[1] === null && !health) {
+      page.innerHTML = A.errorBlock(healthError || 'Could not reach the API', 'retry');
+      var r = document.getElementById('retry');
+      if (r) r.addEventListener('click', function () { load(); });
+      return;
+    }
+    entries = results[1] || [];
+    render();
+  }
+
+  /* ---------- status strip ---------- */
+  function statusCell(key, s) {
+    var state = s && s.status ? s.status : 'down';
+    return '<div class="status-cell">' +
+      '<div class="status-top">' +
+        '<span class="status-dot ' + state + '"></span>' +
+        '<span class="status-name">' + A.esc(NAMES[key] || key) + '</span>' +
+        '<span class="status-state ' + state + '">' + (STATE[state] || state) + '</span>' +
+      '</div>' +
+      '<div class="status-detail" title="' + A.esc(s && s.detail || '') + '">' +
+        A.esc(s && s.detail || 'No answer') + '</div>' +
+      (s && s.ms != null ? '<div class="status-ms">' + s.ms + ' ms</div>' : '') +
+    '</div>';
+  }
+
+  function statusStrip() {
+    if (healthError) {
+      return '<div class="status-row"><div class="status-cell">' +
+        '<div class="status-top"><span class="status-dot down"></span>' +
+        '<span class="status-name">API</span>' +
+        '<span class="status-state down">down</span></div>' +
+        '<div class="status-detail">' + A.esc(healthError) + '</div>' +
+      '</div></div>';
+    }
+    if (!health) return '';
+    var s = health.services || {};
+    return '<div class="status-row">' +
+      ['supabase', 'paystack', 'payhero', 'payments']
+        .map(function (k) { return statusCell(k, s[k]); }).join('') +
+    '</div>';
+  }
+
+  /* What the service believes about itself. Most support questions —
+     "why was that deposit refused", "where does the callback go" — are
+     answered by these four lines rather than by a log. */
+  function appCard() {
+    if (!health || !health.app) return '';
+    var a = health.app;
+    var mins = Math.round((a.uptimeSeconds || 0) / 60);
+    return A.card('This service',
+      '<div class="kv"><span>Environment</span><b>' + A.esc(a.env) + '</b></div>' +
+      '<div class="kv"><span>Running for</span><b class="num">' +
+        (mins < 60 ? mins + 'm' : Math.round(mins / 60) + 'h') + '</b></div>' +
+      '<div class="kv"><span>Minimum deposit</span><b class="num">' +
+        A.money(a.minDepositMinor) + '</b></div>' +
+      '<div class="kv"><span>Rate</span><b class="num">1 USD = ' +
+        A.esc(String(a.usdRateKes)) + ' KES</b></div>' +
+      '<div class="kv"><span>Site</span><b class="num">' + A.esc(a.appUrl) + '</b></div>' +
+      '<div class="kv"><span>Allowed origins</span><b class="num">' +
+        (a.corsOrigins && a.corsOrigins.length
+          ? A.esc(a.corsOrigins.join(', '))
+          : 'none — every browser call is refused') + '</b></div>' +
+      '<div class="sect-label" style="margin-top:14px">Webhook addresses</div>' +
+      '<div class="kv"><span>Paystack</span><b class="num">' +
+        A.esc(a.webhooks.paystack) + '</b></div>' +
+      '<div class="kv"><span>PayHero</span><b class="num">' +
+        A.esc(a.webhooks.payhero) + '</b></div>');
+  }
+
+  /* ---------- logs ---------- */
+  function sources() {
+    var seen = {};
+    entries.forEach(function (e) { seen[e.source] = 1; });
+    return Object.keys(seen).sort();
+  }
+
+  function option(value, label, current) {
+    return '<option value="' + value + '"' +
+      (value === current ? ' selected' : '') + '>' + label + '</option>';
+  }
+
+  function filterBar() {
+    return '<div class="filters">' +
+      '<div class="field search-field">' + A.icon('search', 15) +
+        '<input id="q" placeholder="Search messages" value="' + A.esc(filters.q) + '"></div>' +
+      '<div class="field"><select id="level">' +
+        option('all', 'All levels', filters.level) +
+        option('error', 'Errors', filters.level) +
+        option('warn', 'Warnings', filters.level) +
+        option('info', 'Info', filters.level) +
+      '</select></div>' +
+      '<div class="field"><select id="source">' +
+        option('all', 'All sources', filters.source) +
+        sources().map(function (s) { return option(s, s, filters.source); }).join('') +
+      '</select></div>' +
+      '<button class="btn btn-ghost btn-sm" id="refresh">' +
+        A.icon('refresh', 15) + 'Refresh</button>' +
+    '</div>';
+  }
+
+  function logRows() {
+    return entries.map(function (e) {
+      var ctx = e.context ? JSON.stringify(e.context) : '';
+      if (ctx.length > 220) ctx = ctx.slice(0, 220) + '…';
+      return '<tr>' +
+        '<td><span class="log-level ' + e.level + '">' + e.level + '</span></td>' +
+        '<td><span class="log-src">' + A.esc(e.source) + '</span></td>' +
+        '<td><div class="log-msg">' + A.esc(e.message) + '</div>' +
+          (ctx ? '<div class="log-ctx">' + A.esc(ctx) + '</div>' : '') +
+          (e.reference ? '<div class="cell-sub">ref ' + A.esc(e.reference) + '</div>' : '') +
+        '</td>' +
+        '<td class="right"><span class="cell-sub">' + A.ago(e.at) + '</span></td>' +
+      '</tr>';
+    });
+  }
+
+  function render() {
+    var errors = entries.filter(function (e) { return e.level === 'error'; }).length;
+    var warns = entries.filter(function (e) { return e.level === 'warn'; }).length;
+
+    var body = entries.length
+      ? A.table([
+          { label: 'Level' }, { label: 'Source' }, { label: 'What happened' },
+          { label: 'When', right: true }
+        ], logRows())
+      : A.emptyBlock('Nothing logged',
+          filters.level !== 'all' || filters.source !== 'all' || filters.q
+            ? 'No entries match this filter.'
+            : 'Events are written here when something needs attention — a refused ' +
+              'origin, a provider that did not answer, a webhook that failed its ' +
+              'signature. An empty list is the good case.');
+
+    page.innerHTML =
+      statusStrip() +
+      appCard() +
+      filterBar() +
+      A.card('Recent events' +
+        (errors ? ' — ' + errors + ' error' + (errors === 1 ? '' : 's') : '') +
+        (warns ? ', ' + warns + ' warning' + (warns === 1 ? '' : 's') : ''),
+        body, '', !!entries.length) +
+      '<div class="foot-note">Only events worth acting on are kept: request logs ' +
+        'stay on the host. Info is pruned after two weeks, warnings after two ' +
+        'months, errors after six.</div>';
+
+    wire();
+  }
+
+  function wire() {
+    var q = document.getElementById('q');
+    var level = document.getElementById('level');
+    var source = document.getElementById('source');
+    var refresh = document.getElementById('refresh');
+
+    if (level) level.addEventListener('change', function () {
+      filters.level = level.value; load(true);
+    });
+    if (source) source.addEventListener('change', function () {
+      filters.source = source.value; load(true);
+    });
+    if (refresh) refresh.addEventListener('click', function () { load(true); });
+
+    if (q) {
+      var timer = null;
+      q.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { filters.q = q.value.trim(); load(true); }, 350);
+      });
+    }
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

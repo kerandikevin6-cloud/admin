@@ -225,6 +225,24 @@
       return normaliseWithdrawal(out.request);
     },
 
+    /* ---------- system ---------- */
+    health: async function () {
+      return call('/admin/health');
+    },
+
+    logs: async function (params) {
+      var q = [];
+      if (params && params.level && params.level !== 'all') q.push('level=' + params.level);
+      if (params && params.source && params.source !== 'all') q.push('source=' + encodeURIComponent(params.source));
+      if (params && params.q) q.push('q=' + encodeURIComponent(params.q));
+      q.push('limit=' + ((params && params.limit) || 100));
+      var out = await call('/admin/logs?' + q.join('&'));
+      return (out.entries || []).map(function (e) {
+        e.at = ms(e.at);
+        return e;
+      });
+    },
+
     domains: async function () {
       var out = await call('/admin/domains');
       return out.domains || [];

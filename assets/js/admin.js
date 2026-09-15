@@ -26,7 +26,9 @@
     plus: 'M12 5v14M5 12h14',
     stop: 'M8 8h8v8H8z',
     globe: 'M3 12h18|M12 3a15 15 0 010 18 15 15 0 010-18',
-    out: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4|M16 17l5-5-5-5M21 12H9'
+    out: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4|M16 17l5-5-5-5M21 12H9',
+    logs: 'M5 4h14v16H5z|M8.5 9h7M8.5 13h7M8.5 17h4',
+    refresh: 'M20 12a8 8 0 11-2.5-5.8|M20 4v4h-4'
   };
 
   function icon(name, size) {
@@ -301,7 +303,9 @@
     endSession: API.endSession,
     staff: API.staff,
     inviteStaff: API.inviteStaff,
-    updateStaff: API.updateStaff
+    updateStaff: API.updateStaff,
+    health: API.health,
+    logs: API.logs
   } : {
     live: false,
     stats: function () { return Promise.resolve(EMPTY_STATS); },
@@ -322,7 +326,9 @@
     endSession: none,
     staff: function () { return Promise.resolve([]); },
     inviteStaff: none,
-    updateStaff: none
+    updateStaff: none,
+    health: none,
+    logs: function () { return Promise.resolve([]); }
   };
 
   /* ---------- chrome ---------- */
@@ -337,6 +343,8 @@
     { id: 'domains', label: 'Domains', href: 'domains.html', icon: 'globe' },
     { section: 'Growth' },
     { id: 'sessions', label: 'Sessions', href: 'sessions.html', icon: 'live' },
+    { section: 'System' },
+    { id: 'logs', label: 'Logs', href: 'logs.html', icon: 'logs' },
     { section: 'Team' },
     /* Only a super admin can make another admin. The nav hides it for
        everyone else, and the page checks again on open — a hidden link

@@ -523,3 +523,51 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* the rail has no brand block now, so the nav starts at the top */
 .rail-nav{padding-top:18px}
+
+/* ---------------- system status ---------------- */
+/* One card per dependency, in a row that wraps. The dot carries the
+   state and the word repeats it, because a dot alone is unreadable to
+   anyone who cannot separate the two greens. */
+.status-row{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:0;border:1px solid var(--line);margin-bottom:18px;
+}
+.status-cell{padding:14px 16px;border-right:1px solid var(--line);min-width:0}
+.status-cell:last-child{border-right:none}
+.status-top{display:flex;align-items:center;gap:7px}
+.status-dot{width:7px;height:7px;flex:none;border-radius:50%;background:var(--muted)}
+.status-dot.live{background:var(--pos)}
+.status-dot.warn{background:var(--warn)}
+.status-dot.auth{background:var(--warn)}
+.status-dot.down{background:var(--neg)}
+.status-dot.off{background:var(--muted)}
+.status-name{font-size:12.5px;font-weight:600;color:var(--text)}
+.status-state{
+  margin-left:auto;font-size:10.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);
+}
+.status-state.live{color:var(--pos)}
+.status-state.warn,.status-state.auth{color:var(--warn)}
+.status-state.down{color:var(--neg)}
+.status-detail{
+  margin-top:6px;font-size:11.5px;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.status-ms{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:3px}
+
+/* ---------------- log rows ---------------- */
+.log-level{
+  font-family:var(--mono);font-size:10.5px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.log-level.error{color:var(--neg)}
+.log-level.warn{color:var(--warn)}
+.log-level.info{color:var(--muted)}
+.log-msg{font-size:13px;color:var(--text)}
+.log-ctx{
+  font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px;
+  white-space:pre-wrap;word-break:break-word;
+}
+.log-src{
+  font-family:var(--mono);font-size:11px;color:var(--text-2);
+}
