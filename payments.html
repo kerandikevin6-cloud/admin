@@ -10,7 +10,6 @@
 </head>
 <body data-page="payments" data-title="Deposits">
 <script src="assets/js/config.js"></script>
-<script src="assets/js/mock.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/admin.js"></script>
 <script>
@@ -63,7 +62,7 @@
     '</div>';
 
     var filters = '<div class="filters">' +
-      '<label class="field">' + A.icon('search', 15) +
+      '<label class="field search-field">' + A.icon('search', 15) +
         '<input id="q" type="search" placeholder="Reference, name or email" value="' +
         A.esc(state.q) + '" aria-label="Search deposits"></label>' +
       '<div class="seg" id="statusSeg">' +
@@ -83,6 +82,10 @@
     var body;
     if (loading) body = A.loadingBlock('Loading deposits');
     else if (failure) body = A.errorBlock(failure, 'retry');
+    else if (!rows.length) body = A.emptyBlock('No deposits yet',
+      state.q || state.status !== 'all' || state.method !== 'all'
+        ? 'Nothing matches those filters.'
+        : 'Every attempt to pay in shows here, whether it settles or not.');
     else body = A.table([
       { label: 'Reference' }, { label: 'Customer' }, { label: 'Method' },
       { label: 'Paid', right: true }, { label: 'Credited', right: true },
@@ -94,7 +97,7 @@
         '<td>' + A.esc(p.providerLabel) + '</td>' +
         '<td class="num right">' + A.money(p.amountMinor, p.currency) + '</td>' +
         '<td class="num right">' +
-          (p.creditedMinor == null ? '\u2014' : A.money(p.creditedMinor)) + '</td>' +
+          (p.creditedMinor == null ? '\u2014' : A.usd(p.creditedMinor)) + '</td>' +
         '<td class="right">' + A.pill(p.status) + '</td>' +
         '<td class="right muted">' + A.dateTime(p.created) + '</td>' +
       '</tr>';
@@ -151,7 +154,7 @@
           '<div class="kv"><span>Amount paid</span><b class="num">' +
             A.money(p.amountMinor, p.currency) + '</b></div>' +
           '<div class="kv"><span>Credited</span><b class="num">' +
-            (p.creditedMinor == null ? 'Not credited' : A.money(p.creditedMinor)) + '</b></div>' +
+            (p.creditedMinor == null ? 'Not credited' : A.usd(p.creditedMinor)) + '</b></div>' +
           '<div class="kv"><span>Started</span><b>' + A.dateTime(p.created) + '</b></div>' +
           (p.failureReason
             ? '<div class="kv"><span>Reason</span><b>' + A.esc(p.failureReason) + '</b></div>' : '') +

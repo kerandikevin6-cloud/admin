@@ -10,7 +10,6 @@
 </head>
 <body data-page="withdrawals" data-title="Withdrawals">
 <script src="assets/js/config.js"></script>
-<script src="assets/js/mock.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/admin.js"></script>
 <script>
@@ -52,8 +51,8 @@
       A.kpi('Awaiting review', A.count(pending.length),
         pending.length ? 'clear these today' : 'queue is empty',
         pending.length ? 'neg' : 'pos') +
-      A.kpi('Held for payout', A.money(held), 'debited, not yet sent') +
-      A.kpi('Paid out', A.money(paidMinor), A.count(paid.length) + ' payouts') +
+      A.kpi('Held for payout', A.usd(held), 'debited, not yet sent') +
+      A.kpi('Paid out', A.usd(paidMinor), A.count(paid.length) + ' payouts') +
       /* The oldest waiting request is the one a customer is angry about,
          so it gets a tile rather than being inferred from a list. */
       A.kpi('Oldest waiting', oldest ? A.ago(oldest) : '\u2014',
@@ -71,6 +70,11 @@
     var body;
     if (loading) body = A.loadingBlock('Loading requests');
     else if (failure) body = A.errorBlock(failure, 'retry');
+    else if (!rows.length) body = A.emptyBlock(
+      state.status === 'pending' ? 'Nothing waiting' : 'No requests yet',
+      state.status === 'pending'
+        ? 'Every payout has been dealt with.'
+        : 'Withdrawal requests appear here for review.');
     else body = A.table([
       { label: 'Customer' }, { label: 'Send to' }, { label: 'Amount', right: true },
       { label: 'Status', right: true }, { label: 'Waiting', right: true }, { label: '', right: true }
@@ -78,7 +82,7 @@
       return '<tr class="row-click" data-w="' + A.esc(w.id) + '">' +
         '<td>' + A.who(w.userName, w.userEmail) + '</td>' +
         '<td class="num">' + (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</td>' +
-        '<td class="num right">' + A.money(w.amountMinor, w.currency) + '</td>' +
+        '<td class="num right">' + A.usd(w.amountMinor) + '</td>' +
         '<td class="right">' + A.pill(w.status) + '</td>' +
         '<td class="right muted">' + A.ago(w.created) + '</td>' +
         '<td class="right">' + (w.status === 'pending'
@@ -118,7 +122,7 @@
 
     A.openDrawer(
       '<div class="drawer-head">' +
-        '<div style="flex:1"><h2>' + A.money(w.amountMinor, w.currency) + '</h2>' +
+        '<div style="flex:1"><h2>' + A.usd(w.amountMinor) + '</h2>' +
         '<p>' + A.esc(w.userName) + '</p></div>' +
         '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
       '</div>' +
@@ -126,7 +130,7 @@
         '<div><div class="sect-label">Request</div>' +
           '<div class="kv"><span>Status</span><b>' + A.pill(w.status) + '</b></div>' +
           '<div class="kv"><span>Amount</span><b class="num">' +
-            A.money(w.amountMinor, w.currency) + '</b></div>' +
+            A.usd(w.amountMinor) + '</b></div>' +
           '<div class="kv"><span>Send to</span><b class="num">' +
             (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</b></div>' +
           '<div class="kv"><span>Requested</span><b>' + A.dateTime(w.created) + '</b></div>' +
@@ -173,8 +177,8 @@
       A.closeAll();
       await load();
       A.toast(act === 'approve'
-        ? A.money(w.amountMinor, w.currency) + ' marked paid to ' + w.userName
-        : 'Rejected \u2014 ' + A.money(w.amountMinor, w.currency) + ' returned to ' + w.userName);
+        ? A.usd(w.amountMinor) + ' marked paid to ' + w.userName
+        : 'Rejected \u2014 ' + A.usd(w.amountMinor) + ' returned to ' + w.userName);
     });
   }
 

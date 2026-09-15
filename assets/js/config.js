@@ -1,14 +1,15 @@
 /* ============================================================
    Console configuration
 
-   apiBase empty  -> the console runs on the mock data in mock.js.
-   apiBase set    -> every screen talks to the Nexas API.
+   The console reads everything from the Nexas API. Point this at the
+   service and sign in; without it nothing can be read and no one can
+   sign in, which is the correct answer rather than a convenient one.
 
-   Set it to your Render URL when the service is up:
-     apiBase: 'https://nexas-api.onrender.com'
+   The console's own origin must be listed in the API's CORS_ORIGINS,
+   or the browser refuses every call before it leaves.
    ============================================================ */
 window.NexasAdminConfig = {
-  apiBase: '',
+  apiBase: 'https://backend-avzc.onrender.com',
 
   /* Supabase project. The publishable key is safe in a browser — it is
      bound by row level security and cannot read another user's rows.

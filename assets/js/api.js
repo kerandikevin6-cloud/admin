@@ -1,13 +1,9 @@
 /* ============================================================
    Admin API client
 
-   One switch decides where the console gets its data. Set a base URL in
-   config.js and every screen talks to the server; leave it empty and the
-   same screens run on the mock in mock.js.
-
-   That is deliberate. The console has to stay openable while the API is
-   down or half-built, and a design that only works when the server is up
-   cannot be developed against.
+   Every figure in the console comes through here. Set apiBase in
+   config.js and the screens read the live database; leave it empty and
+   they render their empty states rather than inventing anything.
    ============================================================ */
 (function () {
   "use strict";
@@ -227,6 +223,59 @@
       var out = await call('/admin/withdrawals/' + encodeURIComponent(id) + '/approve',
         { method: 'POST', body: { note: note } });
       return normaliseWithdrawal(out.request);
+    },
+
+    domains: async function () {
+      var out = await call('/admin/domains');
+      return out.domains || [];
+    },
+    createDomain: async function (body) {
+      var out = await call('/admin/domains', { method: 'POST', body: body });
+      return out.domain;
+    },
+    updateDomain: async function (host, patch) {
+      var out = await call('/admin/domains/' + encodeURIComponent(host),
+        { method: 'PATCH', body: patch });
+      return out.domain;
+    },
+
+    sessions: async function () {
+      var out = await call('/admin/sessions');
+      return (out.sessions || []).map(function (x) {
+        x.startedAt = ms(x.startedAt);
+        x.endedAt = ms(x.endedAt);
+        return x;
+      });
+    },
+    startSession: async function (body) {
+      var out = await call('/admin/sessions', { method: 'POST', body: body });
+      out.session.startedAt = ms(out.session.startedAt);
+      return out.session;
+    },
+    endSession: async function (id) {
+      var out = await call('/admin/sessions/' + encodeURIComponent(id) + '/end',
+        { method: 'POST' });
+      out.session.startedAt = ms(out.session.startedAt);
+      out.session.endedAt = ms(out.session.endedAt);
+      return out.session;
+    },
+
+    staff: async function () {
+      var out = await call('/admin/staff');
+      return (out.staff || []).map(function (x) {
+        x.created = ms(x.created);
+        x.lastSeen = ms(x.lastSeen);
+        return x;
+      });
+    },
+    inviteStaff: async function (body) {
+      var out = await call('/admin/staff', { method: 'POST', body: body });
+      return out.staff;
+    },
+    updateStaff: async function (id, patch) {
+      var out = await call('/admin/staff/' + encodeURIComponent(id),
+        { method: 'PATCH', body: patch });
+      return out.staff;
     },
 
     rejectWithdrawal: async function (id, note) {

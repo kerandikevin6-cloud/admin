@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Admins</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="admins" data-title="Admins">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var me = A.session();
+  var page = document.getElementById('page');
+  var staff = [];
+
+  /* The nav hides this page for everyone else, but a hidden link is
+     tidiness rather than a control — anyone can type the URL. The API
+     refuses too, which is what actually protects it. */
+  if (!A.can(me, 'manager')) {
+    page.innerHTML = A.card('',
+      A.emptyBlock('Not your call',
+        'Only a super admin can add or remove admins. Yours is ' +
+        A.roleLabel(me.role) + '.'), '', true);
+    return;
+  }
+
+  var canEdit = me.role === 'super_admin';
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading the team');
+    try {
+      staff = await A.data.staff();
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      document.getElementById('retry').addEventListener('click', load);
+      return;
+    }
+    render();
+  }
+
+  function roleCard() {
+    return A.card('What each role can do',
+      Object.keys(A.roles).map(function (key) {
+        var r = A.roles[key];
+        return '<div class="role-row"><b>' + A.esc(r.label) + '</b>' +
+          '<span>' + A.esc(r.note) + '</span></div>';
+      }).join(''));
+  }
+
+  function addButton() {
+    return canEdit
+      ? '<button class="btn btn-primary btn-sm" id="addBtn">' +
+        A.icon('plus', 15) + 'Add an admin</button>'
+      : '';
+  }
+
+  function render() {
+    if (!staff.length) {
+      page.innerHTML =
+        A.card('Team',
+          A.emptyBlock('No admins listed yet',
+            'Invite someone, or promote an existing account in the database with ' +
+            'update public.profiles set role = \'super_admin\'.',
+            addButton()), '', true) +
+        roleCard();
+      wire();
+      return;
+    }
+
+    var active = staff.filter(function (s) { return s.status === 'active'; });
+    var rows = staff.map(function (s) {
+      var self = s.email === me.email;
+      return '<tr>' +
+        '<td>' + A.who(s.name + (self ? ' (you)' : ''), s.email) + '</td>' +
+        '<td>' + A.esc(A.roleLabel(s.role)) + '</td>' +
+        '<td>' + A.pill(s.status) + '</td>' +
+        '<td class="right muted">' + (s.lastSeen ? A.ago(s.lastSeen) : 'Never signed in') + '</td>' +
+        '<td class="right muted">' + (s.created ? A.date(s.created) : '\u2014') + '</td>' +
+        '<td class="right">' +
+          (self || !canEdit
+            ? '<span class="muted">\u2014</span>'
+            : '<button class="btn btn-quiet btn-sm" data-edit="' + A.esc(s.id) + '">Manage</button>') +
+        '</td>' +
+      '</tr>';
+    });
+
+    page.innerHTML =
+      '<div class="kpis">' +
+        A.kpi('Admins', A.count(staff.length), A.count(active.length) + ' active') +
+        A.kpi('Super admins', A.count(staff.filter(function (s) {
+          return s.role === 'super_admin'; }).length), 'can manage this page') +
+        A.kpi('Session handlers', A.count(staff.filter(function (s) {
+          return s.role === 'session_handler'; }).length), 'can run live sessions') +
+        A.kpi('Suspended', A.count(staff.filter(function (s) {
+          return s.status === 'suspended'; }).length), 'cannot sign in') +
+      '</div>' +
+      '<div class="filters">' + addButton() + '</div>' +
+      A.card('Team',
+        A.table([
+          { label: 'Person' }, { label: 'Role' }, { label: 'Status' },
+          { label: 'Last seen', right: true }, { label: 'Added', right: true },
+          { label: '', right: true }
+        ], rows), '', true) +
+      roleCard() +
+      '<div class="foot-note">Roles are checked on the server on every request, not ' +
+        'read from the sign-in token \u2014 so removing someone takes effect immediately ' +
+        'rather than when their session happens to expire.</div>';
+
+    wire();
+  }
+
+  function err(id, msg) {
+    var box = document.getElementById(id);
+    if (!box) return;
+    box.textContent = msg || '';
+    box.hidden = !msg;
+    box.previousElementSibling.classList.toggle('bad', !!msg);
+  }
+
+  function wire() {
+    var add = document.getElementById('addBtn');
+    if (add) add.addEventListener('click', openAdd);
+    page.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-edit]');
+      if (b) openEdit(b.getAttribute('data-edit'));
+    });
+  }
+
+  function roleOptions(selected) {
+    return Object.keys(A.roles).map(function (key) {
+      return '<option value="' + key + '"' + (key === selected ? ' selected' : '') + '>' +
+        A.esc(A.roles[key].label) + '</option>';
+    }).join('');
+  }
+
+  function openAdd() {
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>Add an admin</h2>' +
+        '<p>They are emailed a link to set their own password.</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div class="field-block"><label for="aName">Full name</label>' +
+          '<div class="field"><input id="aName" placeholder="Their name"></div>' +
+          '<div class="field-error" id="aNameError" hidden></div></div>' +
+        '<div class="field-block"><label for="aEmail">Work email</label>' +
+          '<div class="field"><input id="aEmail" type="email" placeholder="them@nexas.trade"></div>' +
+          '<div class="field-error" id="aEmailError" hidden></div></div>' +
+        '<div class="field-block"><label for="aRole">Role</label>' +
+          '<div class="field"><select id="aRole">' + roleOptions('session_handler') + '</select></div>' +
+          '<div class="hint" id="aRoleNote"></div></div>' +
+        '<p class="muted" style="font-size:12.5px;line-height:1.7;margin:0">' +
+          'No password is set here. They receive an invitation and choose their own, ' +
+          'so nobody ever knows another person\u2019s credentials.</p>' +
+      '</div>' +
+      '<div class="drawer-foot">' +
+        '<button class="btn btn-primary btn-sm" data-act="create">Send invitation</button>' +
+        '<button class="btn btn-ghost btn-sm" data-close>Cancel</button>' +
+      '</div>');
+
+    var roleSel = document.getElementById('aRole');
+    var note = document.getElementById('aRoleNote');
+    function paintNote() { note.textContent = A.roles[roleSel.value].note; }
+    roleSel.addEventListener('change', paintNote);
+    paintNote();
+
+    document.querySelector('.drawer-foot').addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act="create"]');
+      if (!b) return;
+
+      var name = document.getElementById('aName');
+      var email = document.getElementById('aEmail');
+      var bad = null;
+
+      err('aNameError', ''); err('aEmailError', '');
+      if (!name.value.trim()) { err('aNameError', 'Enter their name'); bad = name; }
+      var mail = email.value.trim().toLowerCase();
+      if (!mail) { err('aEmailError', 'Enter their work email'); bad = bad || email; }
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) {
+        err('aEmailError', 'That does not look like an email address'); bad = bad || email;
+      }
+      if (bad) { bad.focus(); return; }
+
+      b.disabled = true;
+      b.innerHTML = A.loader('sm') + 'Inviting';
+      try {
+        await A.data.inviteStaff({ name: name.value.trim(), email: mail, role: roleSel.value });
+      } catch (e2) {
+        b.disabled = false; b.textContent = 'Send invitation';
+        err('aEmailError', e2.message); return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast('Invitation sent to ' + mail);
+    });
+  }
+
+  function openEdit(id) {
+    var s = staff.filter(function (x) { return x.id === id; })[0];
+    if (!s) return;
+
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + A.esc(s.name) + '</h2><p>' + A.esc(s.email) + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div><div class="sect-label">Access</div>' +
+          '<div class="kv"><span>Status</span><b>' + A.pill(s.status) + '</b></div>' +
+          '<div class="kv"><span>Added</span><b>' +
+            (s.created ? A.date(s.created) : '\u2014') + '</b></div>' +
+          '<div class="kv"><span>Last seen</span><b>' +
+            (s.lastSeen ? A.ago(s.lastSeen) : 'Never signed in') + '</b></div>' +
+        '</div>' +
+        '<div class="field-block"><label for="eRole">Role</label>' +
+          '<div class="field"><select id="eRole">' + roleOptions(s.role) + '</select></div>' +
+          '<div class="hint" id="eRoleNote">' + A.esc(A.roles[s.role] ? A.roles[s.role].note : '') +
+          '</div></div>' +
+      '</div>' +
+      '<div class="drawer-foot">' +
+        '<button class="btn btn-primary btn-sm" data-act="save">Save role</button>' +
+        (s.status === 'active'
+          ? '<button class="btn btn-danger btn-sm" data-act="suspend">Suspend</button>'
+          : '<button class="btn btn-ghost btn-sm" data-act="restore">Restore</button>') +
+      '</div>');
+
+    var roleSel = document.getElementById('eRole');
+    roleSel.addEventListener('change', function () {
+      document.getElementById('eRoleNote').textContent = A.roles[this.value].note;
+    });
+
+    var foot = document.querySelector('.drawer-foot');
+    foot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act]');
+      if (!b) return;
+      var act = b.getAttribute('data-act');
+      var patch =
+        act === 'save' ? { role: roleSel.value } :
+        act === 'suspend' ? { status: 'suspended' } : { status: 'active' };
+
+      [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = true; });
+      b.innerHTML = A.loader('sm') + 'Saving';
+
+      try {
+        await A.data.updateStaff(s.id, patch);
+      } catch (e2) {
+        [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = false; });
+        A.toast(e2.message); return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast(s.name + ' \u2014 ' + (
+        act === 'save' ? 'role set to ' + A.roleLabel(roleSel.value) :
+        act === 'suspend' ? 'suspended' : 'restored'));
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

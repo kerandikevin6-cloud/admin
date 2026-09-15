@@ -10,7 +10,6 @@
 </head>
 <body data-page="dashboard" data-title="Dashboard">
 <script src="assets/js/config.js"></script>
-<script src="assets/js/mock.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/admin.js"></script>
 <script>
@@ -47,12 +46,20 @@
        Money held is first and on its own: it is what is owed to
        customers, and the number an operator should never have to hunt
        for. */
+    if (!stats.users && !stats.depositCount && !payments.length) {
+      page.innerHTML = A.card('Dashboard',
+        A.emptyBlock('Nothing has happened yet',
+          'Once people sign up and money starts moving, this is where it is summarised.',
+          '<a class="btn btn-ghost btn-sm" href="users.html">Open users</a>'), '', true);
+      return;
+    }
+
     var kpis = '<div class="kpis">' +
-      A.kpi('Customer funds held', A.money(stats.heldMinor),
+      A.kpi('Customer funds held', A.usd(stats.heldMinor),
         'across ' + A.count(stats.activeUsers) + ' active accounts') +
       A.kpi('Deposits settled', A.shortMoney(stats.depositsMinor, 'KES'),
         A.count(stats.depositCount) + ' payments') +
-      A.kpi('Payouts awaiting review', A.money(stats.payoutsPendingMinor),
+      A.kpi('Payouts awaiting review', A.usd(stats.payoutsPendingMinor),
         stats.payoutsPending + ' request' + (stats.payoutsPending === 1 ? '' : 's'),
         stats.payoutsPending ? 'neg' : '') +
       A.kpi('Settlement rate', stats.settlementRate.toFixed(1) + '%',
@@ -88,7 +95,7 @@
 
     var waiting = queue.slice(0, 6).map(function (w) {
       return '<tr><td>' + A.who(w.userName, w.destination) + '</td>' +
-        '<td class="num right">' + A.money(w.amountMinor, w.currency) + '</td>' +
+        '<td class="num right">' + A.usd(w.amountMinor) + '</td>' +
         '<td class="right muted">' + A.ago(w.created) + '</td></tr>';
     });
 

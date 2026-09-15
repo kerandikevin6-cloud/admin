@@ -10,14 +10,11 @@
 </head>
 <body data-page="login" class="signin-page">
 <script src="assets/js/config.js"></script>
-<script src="assets/js/mock.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/admin.js"></script>
 
 <main class="signin">
   <div class="signin-card">
-    <div class="signin-brand"><b>Nexas</b><span>Admin</span></div>
-
     <h1>Sign in to the console</h1>
     <p class="signin-sub">Operator access only. Every action here is recorded against your name.</p>
 
@@ -88,18 +85,16 @@
     });
   });
 
-  /* Say which gate is actually in force, so nobody assumes the console
-     is protected when it is running on the browser list. */
-  var live = window.AdminAPI && window.AdminAPI.live;
-  document.getElementById('gateNote').innerHTML = live
-    ? '<b>Checked on the server.</b> Your credentials go to the Nexas API and the ' +
-      'operator role is read from your profile. A customer account signing in here ' +
-      'is refused.'
-    : '<b>This gate is a stand-in.</b> No API is configured, so it checks a list held ' +
-      'in the browser \u2014 it keeps an honest person out of the wrong screen and ' +
-      'nothing more. Set <span class="num">apiBase</span> in config.js to check on the server.' +
-      '<div class="signin-demo"><span>Demo sign-in</span>' +
-      '<code>ops@nexas.trade</code><code>console1234</code></div>';
+  /* Nothing to say when an API is configured — that is the normal case.
+     It speaks up only when there is none, because then no password on
+     earth will work and that is worth knowing before you try. */
+  var note = document.getElementById('gateNote');
+  if (window.AdminAPI && window.AdminAPI.live) {
+    note.hidden = true;
+  } else {
+    note.innerHTML = '<b>No API configured.</b> Set <span class="num">apiBase</span> ' +
+      'in assets/js/config.js to the address of the Nexas API before signing in.';
+  }
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -129,8 +124,11 @@
          account, it just is not an operator one. Anything else stays
          vague, because naming which half was wrong tells an outsider
          which addresses are real. */
-      failure = /console/i.test(err.message) || /reach/i.test(err.message)
-        ? err.message : null;
+      /* Pass through the reasons that are not about the credentials:
+         a refused role, an unreachable API, or no API at all. Anything
+         else stays vague, because naming which half was wrong tells an
+         outsider which addresses are real. */
+      failure = /console|reach|configured/i.test(err.message) ? err.message : null;
     }
 
     if (!operator) {

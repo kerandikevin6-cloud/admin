@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Domains</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="domains" data-title="Domains">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var me = A.session();
+  var page = document.getElementById('page');
+  var domains = [];
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading domains');
+    try {
+      domains = await A.data.domains();
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      document.getElementById('retry').addEventListener('click', load);
+      return;
+    }
+    render();
+  }
+
+  function addButton() {
+    return A.can(me, 'manager')
+      ? '<button class="btn btn-primary btn-sm" id="addBtn">' +
+        A.icon('plus', 15) + 'Add a domain</button>'
+      : '';
+  }
+
+  function render() {
+    if (!domains.length) {
+      page.innerHTML = A.card('Domains',
+        A.emptyBlock('No domains listed',
+          'Add the host the product is served on, and accounts that sign up there ' +
+          'are tracked against it from then on.',
+          addButton()), '', true);
+      wire();
+      return;
+    }
+
+    var live = domains.filter(function (d) { return d.status === 'live'; });
+    var totalIn = domains.reduce(function (a, d) { return a + d.depositsMinor; }, 0);
+    var totalUsers = domains.reduce(function (a, d) { return a + d.users; }, 0);
+    var best = domains.slice().sort(function (a, b) { return b.netMinor - a.netMinor; })[0];
+
+    var share = totalIn
+      ? A.donut(domains.map(function (d) {
+          return { label: d.host, value: d.depositsMinor, display: A.shortMoney(d.depositsMinor) };
+        }), { centre: A.shortMoney(totalIn), centreNote: 'total in', label: 'Share of deposits' })
+      : A.emptyBlock('No deposits yet', 'Shares appear once money starts arriving.');
+
+    var accounts = totalUsers
+      ? A.donut(domains.map(function (d) {
+          return { label: d.host, value: d.users, display: A.count(d.users) };
+        }), { centre: A.count(totalUsers), centreNote: 'accounts', label: 'Share of accounts' })
+      : A.emptyBlock('No accounts yet', 'Sign-ups are attributed to the host they came through.');
+
+    var rows = domains.map(function (d, i) {
+      return '<tr class="row-click" data-host="' + A.esc(d.host) + '">' +
+        '<td><span class="swatch" style="background:' + A.slice[i % A.slice.length] + '"></span>' +
+          '<span class="cell-main">' + A.esc(d.host) + '</span>' +
+          '<div class="cell-sub">' + A.esc(d.label) + '</div></td>' +
+        '<td class="num right">' + A.count(d.users) + '</td>' +
+        '<td class="num right">' + A.money(d.depositsMinor) + '</td>' +
+        '<td class="num right">' + A.money(d.withdrawalsMinor) + '</td>' +
+        '<td class="num right ' + (d.netMinor >= 0 ? 'pos' : 'neg') + '">' +
+          A.money(d.netMinor) + '</td>' +
+        '<td class="right">' + A.pill(d.status === 'live' ? 'active' : 'off') + '</td>' +
+      '</tr>';
+    });
+
+    page.innerHTML =
+      '<div class="kpis">' +
+        A.kpi('Domains', A.count(domains.length), A.count(live.length) + ' serving traffic') +
+        A.kpi('Accounts across all', A.count(totalUsers), 'signed up by host') +
+        A.kpi('Deposits across all', A.money(totalIn), 'lifetime') +
+        A.kpi('Best performer', best ? A.esc(best.host) : '\u2014',
+          best ? A.shortMoney(best.netMinor) + ' net' : '', 'pos') +
+      '</div>' +
+      '<div class="filters">' + addButton() + '</div>' +
+      '<div class="chart-row two">' +
+        A.card('Share of deposits', share) +
+        A.card('Share of accounts', accounts) +
+      '</div>' +
+      A.card('All domains',
+        A.table([
+          { label: 'Domain' }, { label: 'Accounts', right: true },
+          { label: 'Deposits', right: true }, { label: 'Payouts', right: true },
+          { label: 'Net', right: true }, { label: 'Status', right: true }
+        ], rows), '', true) +
+      '<div class="foot-note">Every account is attributed to the host it signed up ' +
+        'through, so a domain that pays out more than it collects shows up here rather ' +
+        'than being absorbed into one total.</div>';
+
+    wire();
+  }
+
+  function err(id, msg) {
+    var box = document.getElementById(id);
+    if (!box) return;
+    box.textContent = msg || '';
+    box.hidden = !msg;
+    box.previousElementSibling.classList.toggle('bad', !!msg);
+  }
+
+  function wire() {
+    var add = document.getElementById('addBtn');
+    if (add) add.addEventListener('click', openAdd);
+    page.addEventListener('click', function (e) {
+      var row = e.target.closest('[data-host]');
+      if (row) openDomain(row.getAttribute('data-host'));
+    });
+  }
+
+  function openAdd() {
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>Add a domain</h2>' +
+        '<p>Point it at the same app. Accounts signing up there are tracked against ' +
+        'it from the moment it goes live.</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div class="field-block"><label for="dHost">Domain</label>' +
+          '<div class="field"><input id="dHost" placeholder="trade.example.com"></div>' +
+          '<div class="field-error" id="dHostError" hidden></div></div>' +
+        '<div class="field-block"><label for="dLabel">What to call it</label>' +
+          '<div class="field"><input id="dLabel" placeholder="Campaign"></div>' +
+          '<span class="hint">A short name so the charts stay readable.</span></div>' +
+        '<div class="field-block"><label for="dStatus">Start as</label>' +
+          '<div class="field"><select id="dStatus">' +
+            '<option value="paused">Paused &mdash; set up first</option>' +
+            '<option value="live">Live &mdash; serving traffic now</option>' +
+          '</select></div></div>' +
+        '<div class="notice-box"><b>Before it can take traffic</b><ul>' +
+          '<li>Point the DNS at the same host as the main site.</li>' +
+          '<li>Add it to <span class="num">CORS_ORIGINS</span> on the API, or its ' +
+            'requests will be refused.</li>' +
+          '<li>Add it to the Supabase redirect list so sign-in returns correctly.</li>' +
+          '<li>Issue a certificate before making it live.</li>' +
+        '</ul></div>' +
+      '</div>' +
+      '<div class="drawer-foot">' +
+        '<button class="btn btn-primary btn-sm" data-act="create">Add domain</button>' +
+        '<button class="btn btn-ghost btn-sm" data-close>Cancel</button>' +
+      '</div>');
+
+    document.querySelector('.drawer-foot').addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act="create"]');
+      if (!b) return;
+
+      var host = document.getElementById('dHost');
+      var value = host.value.trim().toLowerCase()
+        .replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      err('dHostError', '');
+
+      if (!value) { err('dHostError', 'Enter the domain'); host.focus(); return; }
+      if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(value)) {
+        err('dHostError', 'That does not look like a domain'); host.focus(); return;
+      }
+
+      b.disabled = true;
+      b.innerHTML = A.loader('sm') + 'Adding';
+      try {
+        await A.data.createDomain({
+          host: value,
+          label: document.getElementById('dLabel').value.trim() || 'New',
+          status: document.getElementById('dStatus').value
+        });
+      } catch (e2) {
+        b.disabled = false; b.textContent = 'Add domain';
+        err('dHostError', e2.message); return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast(value + ' added');
+    });
+  }
+
+  function openDomain(host) {
+    var d = domains.filter(function (x) { return x.host === host; })[0];
+    if (!d) return;
+    var manager = A.can(me, 'manager');
+
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + A.esc(d.host) + '</h2><p>' + A.esc(d.label) + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div><div class="sect-label">Money</div>' +
+          '<div class="kv"><span>Deposits</span><b class="num">' +
+            A.money(d.depositsMinor) + '</b></div>' +
+          '<div class="kv"><span>Payouts</span><b class="num">' +
+            A.money(d.withdrawalsMinor) + '</b></div>' +
+          '<div class="kv"><span>Net</span><b class="num ' +
+            (d.netMinor >= 0 ? 'pos' : 'neg') + '">' + A.money(d.netMinor) + '</b></div>' +
+        '</div>' +
+        '<div><div class="sect-label">Traffic</div>' +
+          '<div class="kv"><span>Accounts</span><b class="num">' + A.count(d.users) + '</b></div>' +
+          '<div class="kv"><span>Status</span><b>' +
+            A.pill(d.status === 'live' ? 'active' : 'off') + '</b></div>' +
+        '</div>' +
+        '<div><div class="sect-label">Open it</div>' +
+          '<a class="btn btn-ghost btn-sm" href="https://' + A.esc(d.host) +
+            '" target="_blank" rel="noopener noreferrer">Visit ' + A.esc(d.host) + '</a>' +
+        '</div>' +
+      '</div>' +
+      (manager
+        ? '<div class="drawer-foot">' +
+            (d.status === 'live'
+              ? '<button class="btn btn-danger btn-sm" data-act="paused">Take offline</button>'
+              : '<button class="btn btn-primary btn-sm" data-act="live">Make live</button>') +
+          '</div>'
+        : ''));
+
+    var foot = document.querySelector('.drawer-foot');
+    if (foot) foot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act]');
+      if (!b) return;
+      var status = b.getAttribute('data-act');
+
+      b.disabled = true;
+      b.innerHTML = A.loader('sm') + 'Saving';
+      try {
+        await A.data.updateDomain(d.host, { status: status });
+      } catch (e2) {
+        b.disabled = false;
+        b.textContent = status === 'paused' ? 'Take offline' : 'Make live';
+        A.toast(e2.message); return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast(d.host + ' is now ' + (status === 'live' ? 'live' : 'offline'));
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

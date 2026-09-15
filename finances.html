@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Finances</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="finances" data-title="Finances">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var page = document.getElementById('page');
+  var range = 14;
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading finances');
+
+    var stats, daily, domains, sessions;
+    try {
+      var out = await Promise.all([
+        A.data.stats(), A.data.daily(range), A.data.domains(), A.data.sessions()
+      ]);
+      stats = out[0]; daily = out[1]; domains = out[2]; sessions = out[3];
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      document.getElementById('retry').addEventListener('click', load);
+      return;
+    }
+
+    var grossIn = stats.depositsMinor;
+    var paidOut = A.fromUsd(stats.paidOutMinor);
+    var held = A.fromUsd(stats.heldMinor);
+    var netCash = grossIn - paidOut;
+    var margin = domains.reduce(function (a, d) { return a + (d.marginMinor || 0); }, 0);
+    var adSpend = sessions.reduce(function (a, s) { return a + (s.adSpendMinor || 0); }, 0);
+
+    if (!grossIn && !paidOut && !held) {
+      page.innerHTML = A.card('Finances',
+        A.emptyBlock('No money has moved yet',
+          'Deposits, payouts and margin appear here as soon as the first payment settles.',
+          '<a class="btn btn-ghost btn-sm" href="payments.html">Open deposits</a>'), '', true);
+      return;
+    }
+
+    var kpis = '<div class="kpis">' +
+      A.kpi('Money in', A.money(grossIn), A.count(stats.depositCount) + ' deposits') +
+      A.kpi('Money out', A.money(paidOut), 'payouts settled') +
+      A.kpi('Net cash held', A.money(netCash),
+        'of which ' + A.shortMoney(held) + ' is customer balance') +
+      A.kpi('Earnings after ad spend', A.money(margin - adSpend),
+        A.shortMoney(margin) + ' margin less ' + A.shortMoney(adSpend) + ' spend',
+        margin - adSpend >= 0 ? 'pos' : 'neg') +
+    '</div>';
+
+    var position = A.donut([
+      { label: 'Customer balances', value: held, display: A.shortMoney(held) },
+      { label: 'Paid out', value: paidOut, display: A.shortMoney(paidOut) },
+      { label: 'Margin earned', value: margin, display: A.shortMoney(margin) },
+      { label: 'Ad spend', value: adSpend, display: A.shortMoney(adSpend), color: '#C9CED6' }
+    ], { centre: A.shortMoney(grossIn), centreNote: 'taken in', label: 'Where the money sits' });
+
+    var byDomain = domains.length
+      ? A.donut(domains.map(function (d) {
+          return { label: d.host, value: d.depositsMinor, display: A.shortMoney(d.depositsMinor) };
+        }), { centre: String(domains.length), centreNote: 'domains', label: 'By domain' })
+      : A.emptyBlock('No domains yet', 'Add one to attribute deposits by host.',
+          '<a class="btn btn-ghost btn-sm" href="domains.html">Add a domain</a>');
+
+    /* A share chart cannot say whether something is rising, so movement
+       over time stays a line. */
+    var line = daily.length
+      ? A.trend(daily, [
+          { key: 'depositsMinor', label: 'Deposits' },
+          { key: 'withdrawalsMinor', label: 'Payouts', color: '#B7ACE8' }
+        ], { label: 'Deposits and payouts' }) +
+        '<div class="legend" style="margin-top:12px">' +
+          '<span><i class="a"></i>Deposits</span><span><i class="b"></i>Payouts</span></div>'
+      : A.emptyBlock('Nothing to plot yet', 'A few days of activity and the trend appears here.');
+
+    var domRows = domains.map(function (d, i) {
+      return '<tr>' +
+        '<td><span class="swatch" style="background:' + A.slice[i % A.slice.length] + '"></span>' +
+          A.esc(d.host) + '<div class="cell-sub">' + A.esc(d.label) + ' \u00b7 ' +
+          A.count(d.users) + ' accounts</div></td>' +
+        '<td class="num right">' + A.money(d.depositsMinor) + '</td>' +
+        '<td class="num right">' + A.money(d.withdrawalsMinor) + '</td>' +
+        '<td class="num right ' + (d.netMinor >= 0 ? 'pos' : 'neg') + '">' +
+          A.money(d.netMinor) + '</td>' +
+        '<td class="right">' + A.pill(d.status === 'live' ? 'active' : 'off') + '</td>' +
+      '</tr>';
+    });
+
+    page.innerHTML =
+      kpis +
+      '<div class="chart-row two">' +
+        A.card('Where the money sits', position) +
+        A.card('Deposits by domain', byDomain) +
+      '</div>' +
+      A.card('Movement over ' + range + ' days', line) +
+      A.card('By domain',
+        domains.length
+          ? A.table([
+              { label: 'Domain' }, { label: 'Deposits', right: true },
+              { label: 'Payouts', right: true }, { label: 'Net', right: true },
+              { label: 'Status', right: true }
+            ], domRows)
+          : A.emptyBlock('No domains yet', 'Deposits cannot be attributed until a host is listed.'),
+        '<a class="btn btn-ghost btn-sm" href="domains.html">Manage domains</a>', true) +
+      '<div class="foot-note">Deposits are customer money being held, not income. ' +
+        'The only earnings figure here is margin \u2014 roughly 2.35% of everything staked.</div>';
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

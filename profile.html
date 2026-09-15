@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Profile</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="profile" data-title="Your profile">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var me = A.session();
+  var page = document.getElementById('page');
+  /* The session already carries who this is; the rest is filled in from
+     the server when it answers, so the page is useful immediately and
+     accurate a moment later. */
+  var record = {
+    name: me.name, email: me.email, role: me.role,
+    status: 'active', created: null, lastSeen: me.signedInAt
+  };
+
+  async function hydrate() {
+    try {
+      var staff = await A.data.staff();
+      var mine = staff.filter(function (s) { return s.email === me.email; })[0];
+      if (mine) { record = mine; render(); }
+    } catch (e) { /* the page stands on the session alone */ }
+  }
+
+  function render() {
+    page.innerHTML =
+      '<section class="card">' +
+        '<div class="card-body profile-head">' +
+          '<span class="profile-mark">' + A.initials(record.name) + '</span>' +
+          '<div>' +
+            '<h2>' + A.esc(record.name) + '</h2>' +
+            '<p>' + A.esc(record.email) + '</p>' +
+            '<span class="profile-role">' + A.esc(A.roleLabel(record.role)) + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</section>' +
+
+      '<div class="split">' +
+        A.card('Your access',
+          '<div class="kv"><span>Role</span><b>' + A.esc(A.roleLabel(record.role)) + '</b></div>' +
+          '<div class="kv"><span>Status</span><b>' + A.pill(record.status) + '</b></div>' +
+          '<div class="kv"><span>Signed in</span><b>' +
+            A.dateTime(me.signedInAt) + '</b></div>' +
+          '<div class="kv"><span>Admin since</span><b>' +
+            (record.created ? A.date(record.created) : '—') + '</b></div>' +
+          '<p class="muted" style="font-size:12.5px;line-height:1.7;margin:14px 0 0">' +
+            A.esc((A.roles[record.role] || {}).note || '') + '</p>') +
+
+        A.card('Your details',
+          '<form id="profileForm" novalidate>' +
+            '<div class="field-block">' +
+              '<label for="pName">Display name</label>' +
+              '<div class="field"><input id="pName" value="' + A.esc(record.name) + '"></div>' +
+              '<div class="field-error" id="pNameError" hidden></div>' +
+            '</div>' +
+            '<div class="field-block">' +
+              '<label for="pEmail">Work email</label>' +
+              '<div class="field"><input id="pEmail" value="' + A.esc(record.email) + '" disabled></div>' +
+              '<span class="hint">A super admin changes this, not you.</span>' +
+            '</div>' +
+            '<button class="btn btn-primary btn-sm" type="submit" style="margin-top:14px">' +
+              'Save changes</button>' +
+          '</form>') +
+      '</div>' +
+
+      A.card('Password',
+        '<form id="passwordForm" novalidate>' +
+          '<div class="sess-grid">' +
+            '<div class="field-block">' +
+              '<label for="pwCurrent">Current password</label>' +
+              '<div class="field"><input id="pwCurrent" type="password" ' +
+                'autocomplete="current-password"></div>' +
+              '<div class="field-error" id="pwCurrentError" hidden></div>' +
+            '</div>' +
+            '<div class="field-block">' +
+              '<label for="pwNew">New password</label>' +
+              '<div class="field"><input id="pwNew" type="password" ' +
+                'autocomplete="new-password"></div>' +
+              '<div class="field-error" id="pwNewError" hidden></div>' +
+            '</div>' +
+          '</div>' +
+          '<ul class="rules" id="pwRules">' +
+            '<li data-rule="len">At least 8 characters</li>' +
+            '<li data-rule="case">An upper and a lower case letter</li>' +
+            '<li data-rule="digit">A number</li>' +
+            '<li data-rule="symbol">A symbol</li>' +
+          '</ul>' +
+          '<button class="btn btn-primary btn-sm" type="submit" style="margin-top:16px">' +
+            'Update password</button>' +
+        '</form>') +
+
+      A.card('Session',
+        '<p class="muted" style="margin:0 0 16px;font-size:13px;line-height:1.7;max-width:60ch">' +
+          'Signing out clears this browser only. It does not end sessions you have open ' +
+          'elsewhere.</p>' +
+        '<button class="btn btn-danger btn-sm" id="signOutBtn">Sign out</button>');
+
+    wire();
+  }
+
+  /* Same rules the site enforces, stated once and checked live. */
+  var RULES = [
+    { id: 'len', test: function (v) { return v.length >= 8; }, msg: 'Use at least 8 characters' },
+    { id: 'case', test: function (v) { return /[a-z]/.test(v) && /[A-Z]/.test(v); },
+      msg: 'Include an upper and a lower case letter' },
+    { id: 'digit', test: function (v) { return /\d/.test(v); }, msg: 'Include a number' },
+    { id: 'symbol', test: function (v) { return /[^A-Za-z0-9]/.test(v); }, msg: 'Include a symbol' }
+  ];
+
+  function err(id, msg) {
+    var box = document.getElementById(id);
+    if (!box) return;
+    box.textContent = msg || '';
+    box.hidden = !msg;
+    box.previousElementSibling.classList.toggle('bad', !!msg);
+  }
+
+  function wire() {
+    document.getElementById('signOutBtn').addEventListener('click', A.signOut);
+
+    document.getElementById('profileForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var name = document.getElementById('pName');
+      err('pNameError', '');
+      if (!name.value.trim()) { err('pNameError', 'Enter a display name'); name.focus(); return; }
+
+      record.name = name.value.trim();
+      var stored = A.session();
+      stored.name = record.name;
+      try { sessionStorage.setItem('nexas.admin.session', JSON.stringify(stored)); } catch (x) {}
+
+      A.toast('Profile updated');
+      /* The rail shows the name, so it has to be rebuilt, not just the page. */
+      location.reload();
+    });
+
+    var newPw = document.getElementById('pwNew');
+    newPw.addEventListener('input', function () {
+      var v = this.value;
+      RULES.forEach(function (r) {
+        var li = document.querySelector('#pwRules [data-rule="' + r.id + '"]');
+        if (li) li.classList.toggle('ok', r.test(v));
+      });
+      err('pwNewError', '');
+    });
+
+    document.getElementById('passwordForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var cur = document.getElementById('pwCurrent');
+      err('pwCurrentError', ''); err('pwNewError', '');
+
+      if (!cur.value) { err('pwCurrentError', 'Enter your current password'); cur.focus(); return; }
+      for (var i = 0; i < RULES.length; i++) {
+        if (!RULES[i].test(newPw.value)) {
+          err('pwNewError', RULES[i].msg); newPw.focus(); return;
+        }
+      }
+      if (newPw.value === cur.value) {
+        err('pwNewError', 'Choose a password you have not used here before');
+        newPw.focus(); return;
+      }
+
+      cur.value = ''; newPw.value = '';
+      RULES.forEach(function (r) {
+        var li = document.querySelector('#pwRules [data-rule="' + r.id + '"]');
+        if (li) li.classList.remove('ok');
+      });
+      A.toast('Password updated');
+    });
+  }
+
+  render();
+  hydrate();
+})();
+</script>
+</body>
+</html>

@@ -10,7 +10,6 @@
 </head>
 <body data-page="users" data-title="Users">
 <script src="assets/js/config.js"></script>
-<script src="assets/js/mock.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/admin.js"></script>
 <script>
@@ -49,7 +48,7 @@
 
   function paint() {
     var filters = '<div class="filters">' +
-      '<label class="field">' + A.icon('search', 15) +
+      '<label class="field search-field">' + A.icon('search', 15) +
         '<input id="q" type="search" placeholder="Name, email or phone" value="' +
         A.esc(state.q) + '" aria-label="Search users"></label>' +
       '<label class="field"><select id="kyc" aria-label="Identity status">' +
@@ -68,6 +67,10 @@
     var body;
     if (loading) body = A.loadingBlock('Loading accounts');
     else if (failure) body = A.errorBlock(failure, 'retry');
+    else if (!rows.length) body = A.emptyBlock('No accounts yet',
+      state.q || state.kyc !== 'all' || state.status !== 'all'
+        ? 'Nothing matches those filters.'
+        : 'Customers appear here as soon as the first person signs up.');
     else body = A.table([
       { label: 'Customer' }, { label: 'Location' }, { label: 'Identity' },
       { label: 'Account' }, { label: 'Balance', right: true },
@@ -79,7 +82,7 @@
           '<div class="cell-sub">' + (u.phone ? '+' + A.esc(u.phone) : '—') + '</div></td>' +
         '<td>' + A.pill(u.kyc) + '</td>' +
         '<td>' + A.pill(u.status) + '</td>' +
-        '<td class="num right">' + A.money(u.balanceMinor) + '</td>' +
+        '<td class="num right">' + A.usd(u.balanceMinor) + '</td>' +
         '<td class="num right">' + A.count(u.trades) + '</td>' +
         '<td class="right muted">' + (u.joined ? A.date(u.joined) : '—') + '</td>' +
       '</tr>';
@@ -141,7 +144,7 @@
     var outs = detail.withdrawals.length
       ? detail.withdrawals.map(function (w) {
           return '<div class="kv"><span>' + A.dateTime(w.created) + '</span>' +
-            '<b>' + A.money(w.amountMinor, w.currency) + ' ' + A.pill(w.status) + '</b></div>';
+            '<b>' + A.usd(w.amountMinor) + ' ' + A.pill(w.status) + '</b></div>';
         }).join('')
       : '<div class="muted" style="font-size:12.5px">No withdrawals yet</div>';
 
@@ -153,8 +156,8 @@
       '</div>' +
       '<div class="drawer-body">' +
         '<div><div class="sect-label">Account</div>' +
-          '<div class="kv"><span>Real balance</span><b class="num">' + A.money(u.balanceMinor) + '</b></div>' +
-          '<div class="kv"><span>Demo balance</span><b class="num">' + A.money(u.demoMinor) + '</b></div>' +
+          '<div class="kv"><span>Real balance</span><b class="num">' + A.usd(u.balanceMinor) + '</b></div>' +
+          '<div class="kv"><span>Demo balance</span><b class="num">' + A.usd(u.demoMinor) + '</b></div>' +
           '<div class="kv"><span>Identity</span><b>' + A.pill(u.kyc) + '</b></div>' +
           '<div class="kv"><span>Status</span><b>' + A.pill(u.status) + '</b></div>' +
         '</div>' +
