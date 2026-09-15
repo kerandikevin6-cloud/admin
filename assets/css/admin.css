@@ -1,0 +1,345 @@
+/* ============================================================
+   Nexas Admin
+   White ground, purple actions, square corners, flat colour.
+   No gradients, no rounded cards, no decorative colour — an operator
+   console is read all day, and everything that is not information is
+   noise.
+   ============================================================ */
+
+:root{
+  /* neutrals */
+  --bg:#FFFFFF;
+  --surface:#FFFFFF;
+  --surface-2:#F7F8FA;
+  --surface-3:#EFF1F4;
+  --line:#DCE0E6;
+  --line-soft:#E9ECF0;
+  --text:#14181D;
+  --text-2:#4A525C;
+  --muted:#727C87;
+
+  /* purple — the only accent in the console */
+  --purple:#5B45C9;
+  --purple-hover:#4A37AB;
+  --purple-soft:#F0EDFB;
+  --purple-line:#D6CEF4;
+  --purple-pale:#B7ACE8;
+
+  /* status */
+  --pos:#0B7A4B;
+  --pos-soft:#E6F4ED;
+  --neg:#B3261E;
+  --neg-soft:#FCEBEA;
+  --warn:#9A6100;
+  --warn-soft:#FDF2E2;
+  --info:#20558A;
+  --info-soft:#E8F0F8;
+
+  --sans:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --rail:236px;
+  --topbar:60px;
+}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scrollbar-gutter:stable}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;padding:0}
+input,select,textarea{font:inherit}
+a{color:inherit;text-decoration:none}
+svg{display:block}
+table{border-collapse:collapse;width:100%}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--purple);outline-offset:2px}
+
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.pos{color:var(--pos)} .neg{color:var(--neg)}
+
+/* ---------------- shell ---------------- */
+.shell{display:flex;min-height:100dvh}
+
+.rail{
+  width:var(--rail);flex:none;border-right:1px solid var(--line);
+  background:var(--surface);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100dvh;
+}
+.rail-brand{
+  display:flex;align-items:center;gap:10px;height:var(--topbar);
+  padding:0 18px;border-bottom:1px solid var(--line-soft);flex:none;
+}
+.rail-brand b{font-size:15px;letter-spacing:.18em;text-transform:uppercase;font-weight:600}
+.rail-brand span{
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);
+  border:1px solid var(--purple-line);background:var(--purple-soft);padding:2px 5px;
+}
+.rail-nav{padding:14px 10px;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.rail-sect{
+  font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  padding:16px 10px 7px;font-weight:600;
+}
+.rail-nav a{
+  display:flex;align-items:center;gap:11px;padding:9px 10px;
+  color:var(--text-2);font-size:13.5px;border-left:2px solid transparent;
+}
+.rail-nav a:hover{background:var(--surface-2);color:var(--text)}
+.rail-nav a.on{
+  background:var(--purple-soft);color:var(--purple);
+  border-left-color:var(--purple);font-weight:500;
+}
+.rail-nav a svg{flex:none;opacity:.85}
+.rail-foot{margin-top:auto;padding:14px;border-top:1px solid var(--line-soft);font-size:11.5px;color:var(--muted)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{
+  height:var(--topbar);flex:none;display:flex;align-items:center;gap:14px;
+  padding:0 22px;border-bottom:1px solid var(--line);background:var(--surface);
+  position:sticky;top:0;z-index:20;
+}
+.topbar h1{font-size:15.5px;font-weight:600;margin:0;letter-spacing:-.01em}
+.topbar .spacer{flex:1}
+.who{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2)}
+.who i{
+  width:28px;height:28px;display:grid;place-items:center;font-style:normal;
+  background:var(--purple-soft);color:var(--purple);font-size:12px;font-weight:600;
+  border:1px solid var(--purple-line);
+}
+.page{padding:22px;display:flex;flex-direction:column;gap:20px}
+
+/* ---------------- buttons ---------------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:9px 16px;font-size:13px;font-weight:500;border-radius:0;
+  border:1px solid transparent;white-space:nowrap;
+}
+.btn-primary{background:var(--purple);color:#fff}
+.btn-primary:hover{background:var(--purple-hover)}
+.btn-ghost{background:var(--surface);border-color:var(--line);color:var(--text)}
+.btn-ghost:hover{background:var(--surface-2)}
+.btn-quiet{color:var(--purple);padding:7px 10px}
+.btn-quiet:hover{background:var(--purple-soft)}
+.btn-danger{background:var(--surface);border-color:var(--line);color:var(--neg)}
+.btn-danger:hover{background:var(--neg-soft)}
+.btn-sm{padding:6px 11px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------------- cards ---------------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:0}
+.card-head{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 16px;border-bottom:1px solid var(--line-soft);
+}
+.card-head h2{font-size:13.5px;font-weight:600;margin:0}
+.card-head .spacer{flex:1}
+.card-body{padding:16px}
+
+/* KPI row */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:0;border:1px solid var(--line)}
+.kpi{padding:16px 18px;border-right:1px solid var(--line-soft);border-top:1px solid var(--line-soft)}
+.kpi:nth-child(-n+2){border-top:none}
+.kpi:nth-child(2n){border-right:none}
+.kpi-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.kpi-value{font-family:var(--mono);font-size:24px;margin-top:9px;letter-spacing:-.02em}
+.kpi-note{font-size:11.5px;color:var(--muted);margin-top:6px}
+.kpi-note.pos{color:var(--pos)} .kpi-note.neg{color:var(--neg)}
+
+/* ---------------- tables ---------------- */
+.table-wrap{overflow-x:auto}
+table th{
+  text-align:left;font-size:10px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;padding:10px 14px;
+  border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap;
+}
+table td{padding:12px 14px;border-bottom:1px solid var(--line-soft);font-size:13px;vertical-align:middle}
+table tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-2)}
+td.right,th.right{text-align:right}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.cell-main{font-weight:500}
+.cell-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.row-click{cursor:pointer}
+
+/* ---------------- status pills ---------------- */
+.pill{
+  display:inline-block;padding:3px 8px;font-size:10.5px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;border:1px solid transparent;
+}
+.pill.ok{background:var(--pos-soft);color:var(--pos);border-color:#C4E3D4}
+.pill.bad{background:var(--neg-soft);color:var(--neg);border-color:#F2CFCD}
+.pill.wait{background:var(--warn-soft);color:var(--warn);border-color:#F0DCBC}
+.pill.info{background:var(--info-soft);color:var(--info);border-color:#C9DCEC}
+.pill.off{background:var(--surface-3);color:var(--muted);border-color:var(--line)}
+
+/* ---------------- filters ---------------- */
+.filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.field{
+  display:flex;align-items:center;gap:8px;border:1px solid var(--line);
+  background:var(--surface);padding:0 10px;height:34px;
+}
+.field svg{color:var(--muted);flex:none}
+.field input,.field select{
+  border:none;outline:none;background:none;height:100%;min-width:0;
+  font-size:13px;color:var(--text);
+}
+.field input{width:210px}
+.seg{display:flex;border:1px solid var(--line)}
+.seg button{padding:7px 13px;font-size:12.5px;color:var(--text-2);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button:hover{background:var(--surface-2)}
+.seg button.on{background:var(--purple);color:#fff}
+
+/* ---------------- chart ---------------- */
+.bars{display:flex;align-items:flex-end;gap:6px;height:150px;padding:0 2px}
+.bar-col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;height:100%}
+.bar{width:100%;background:var(--purple);min-height:2px}
+.bar.alt{background:var(--purple-pale)}
+.bar-x{font-size:10px;color:var(--muted);white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;display:block}
+.legend i.a{background:var(--purple)} .legend i.b{background:var(--purple-pale)}
+
+/* ---------------- drawer ---------------- */
+.scrim{
+  position:fixed;inset:0;background:rgba(18,22,28,.4);z-index:40;
+  opacity:0;pointer-events:none;transition:opacity .18s ease;
+}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;bottom:0;width:min(92vw,460px);z-index:50;
+  background:var(--surface);border-left:1px solid var(--line);
+  transform:translateX(102%);transition:transform .22s cubic-bezier(.32,.72,0,1);
+  display:flex;flex-direction:column;overflow-y:auto;
+}
+.drawer.on{transform:none}
+.drawer-head{
+  display:flex;align-items:flex-start;gap:12px;padding:18px;
+  border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface);
+}
+.drawer-head h2{margin:0;font-size:16px;font-weight:600}
+.drawer-head p{margin:3px 0 0;font-size:12.5px;color:var(--muted)}
+.drawer-body{padding:18px;display:flex;flex-direction:column;gap:18px}
+.drawer-foot{
+  margin-top:auto;padding:14px 18px;border-top:1px solid var(--line);
+  display:flex;gap:8px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--surface);
+}
+.iconbtn{width:30px;height:30px;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn:hover{background:var(--surface-2);color:var(--text)}
+
+.kv{display:flex;justify-content:space-between;gap:16px;padding:9px 0;font-size:13px}
+.kv + .kv{border-top:1px solid var(--line-soft)}
+.kv span{color:var(--muted)}
+.kv b{font-weight:500}
+.sect-label{
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:8px;
+}
+
+/* ---------------- misc ---------------- */
+.empty{padding:44px 20px;text-align:center;color:var(--muted);font-size:13px}
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translate(-50%,10px);z-index:80;
+  background:var(--text);color:#fff;padding:11px 18px;font-size:12.5px;
+  opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.foot-note{font-size:11.5px;color:var(--muted);padding:0 2px 8px}
+
+.rail-toggle{display:none}
+
+/* ---------------- narrow ---------------- */
+@media (max-width:900px){
+  .rail{
+    position:fixed;left:0;top:0;z-index:45;transform:translateX(-102%);
+    transition:transform .22s cubic-bezier(.32,.72,0,1);
+  }
+  .rail.on{transform:none}
+  .rail-toggle{display:grid}
+  .page{padding:16px}
+  .kpis{grid-template-columns:1fr 1fr}
+}
+@media (min-width:1100px){
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .kpi:nth-child(-n+4){border-top:none}
+  .kpi:nth-child(2n){border-right:1px solid var(--line-soft)}
+  .kpi:nth-child(4n){border-right:none}
+  .split{display:grid;grid-template-columns:1.6fr 1fr;gap:20px;align-items:start}
+}
+
+
+/* ---------------- loader ----------------
+   Flat purple bars. Same idea as the trading app so a wait reads the
+   same wherever it appears. */
+.loader{display:inline-flex;align-items:center;gap:3px;height:16px}
+.loader i{
+  display:block;width:3px;height:16px;background:currentColor;
+  animation:loadbar .9s ease-in-out infinite;transform-origin:center;
+}
+.loader i:nth-child(1){animation-delay:-.08s}
+.loader i:nth-child(2){animation-delay:-.16s}
+.loader i:nth-child(3){animation-delay:-.24s}
+.loader i:nth-child(4){animation-delay:-.32s}
+.loader.sm i{height:13px;width:2.5px}
+@keyframes loadbar{0%,80%,100%{transform:scaleY(.36)}40%{transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){.loader i{transform:scaleY(1)}}
+
+/* ---------------- sign in ---------------- */
+.signin-page{background:var(--surface-2)}
+.signin{
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:28px 20px;
+}
+.signin-card{
+  width:100%;max-width:404px;background:var(--surface);
+  border:1px solid var(--line);border-radius:0;padding:32px 30px 26px;
+}
+.signin-brand{display:flex;align-items:center;gap:9px;margin-bottom:26px}
+.signin-brand b{font-size:15px;letter-spacing:.18em;text-transform:uppercase;font-weight:600}
+.signin-brand span{
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);
+  border:1px solid var(--purple-line);background:var(--purple-soft);padding:2px 5px;
+}
+.signin h1{font-size:21px;font-weight:600;margin:0 0 7px;letter-spacing:-.015em}
+.signin-sub{margin:0 0 24px;font-size:13px;color:var(--muted);line-height:1.6}
+.signin form{display:flex;flex-direction:column;gap:16px}
+.field-block{display:flex;flex-direction:column;gap:7px}
+.field-block label{font-size:12px;font-weight:500;color:var(--text-2)}
+.field-block .field{height:40px;padding:0 12px}
+.field-block .field input{flex:1;width:100%}
+.field-block .field:focus-within{border-color:var(--purple)}
+.field-block .field.bad{border-color:var(--neg)}
+.reveal{
+  font-size:11.5px;font-weight:500;color:var(--purple);
+  letter-spacing:.04em;text-transform:uppercase;flex:none;
+}
+.field-error{font-size:12px;color:var(--neg);line-height:1.5}
+.signin-error{
+  border:1px solid #F2CFCD;background:var(--neg-soft);padding:10px 12px;
+}
+.signin-go{width:100%;height:42px;margin-top:4px}
+.signin-note{
+  margin-top:26px;padding-top:18px;border-top:1px solid var(--line-soft);
+  font-size:11.5px;color:var(--muted);line-height:1.7;
+}
+.signin-note b{color:var(--text-2);font-weight:600}
+.signin-demo{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;
+  padding:10px 12px;background:var(--surface-2);border:1px solid var(--line-soft);
+}
+.signin-demo span{
+  font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;color:var(--muted);
+}
+.signin-demo code{
+  font-family:var(--mono);font-size:11.5px;color:var(--text-2);
+  background:var(--surface);border:1px solid var(--line);padding:3px 7px;
+}
+
+/* the rail footer now holds a sign-out */
+.rail-foot{display:flex;flex-direction:column;gap:9px;align-items:flex-start}
+.rail-out{padding:5px 8px;font-size:12px;margin-left:-8px}

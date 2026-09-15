@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Dashboard</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="dashboard" data-title="Dashboard">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/mock.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;   /* not signed in */
+
+  var page = document.getElementById('page');
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading the console');
+
+    var stats, daily, payments, queue;
+    try {
+      /* Fetched together: four sequential round trips would make the
+         dashboard feel broken on a cold Render instance. */
+      var results = await Promise.all([
+        A.data.stats(),
+        A.data.daily(14),
+        A.data.payments({ limit: 8 }),
+        A.data.withdrawals({ status: 'pending', limit: 6 })
+      ]);
+      stats = results[0];
+      daily = results[1];
+      payments = results[2].payments;
+      queue = results[3].withdrawals;
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      document.getElementById('retry').addEventListener('click', load);
+      return;
+    }
+
+    /* ---- headline figures ----
+       Money held is first and on its own: it is what is owed to
+       customers, and the number an operator should never have to hunt
+       for. */
+    var kpis = '<div class="kpis">' +
+      A.kpi('Customer funds held', A.money(stats.heldMinor),
+        'across ' + A.count(stats.activeUsers) + ' active accounts') +
+      A.kpi('Deposits settled', A.shortMoney(stats.depositsMinor, 'KES'),
+        A.count(stats.depositCount) + ' payments') +
+      A.kpi('Payouts awaiting review', A.money(stats.payoutsPendingMinor),
+        stats.payoutsPending + ' request' + (stats.payoutsPending === 1 ? '' : 's'),
+        stats.payoutsPending ? 'neg' : '') +
+      A.kpi('Settlement rate', stats.settlementRate.toFixed(1) + '%',
+        stats.failedCount + ' failed, ' + stats.pendingCount + ' pending',
+        stats.settlementRate >= 85 ? 'pos' : 'neg') +
+    '</div>';
+
+    /* ---- 14-day bars, flat colour ---- */
+    var peak = Math.max(1, Math.max.apply(null, daily.map(function (d) {
+      return Math.max(d.depositsMinor, d.withdrawalsMinor);
+    })));
+    var bars = '<div class="bars">' + daily.map(function (d) {
+      var label = new Date(d.t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      return '<div class="bar-col" title="' + label + ' \u2014 in ' +
+          A.shortMoney(d.depositsMinor, 'KES') + ', out ' +
+          A.shortMoney(d.withdrawalsMinor, 'KES') + '">' +
+        '<div class="bar" style="height:' + Math.round(d.depositsMinor / peak * 100) + '%"></div>' +
+        '<div class="bar alt" style="height:' + Math.round(d.withdrawalsMinor / peak * 100) + '%"></div>' +
+        '<div class="bar-x">' + new Date(d.t).getDate() + '</div>' +
+      '</div>';
+    }).join('') + '</div>' +
+    '<div class="legend" style="margin-top:14px">' +
+      '<span><i class="a"></i>Deposits</span><span><i class="b"></i>Withdrawals</span>' +
+    '</div>';
+
+    var recent = payments.slice(0, 8).map(function (p) {
+      return '<tr><td>' + A.who(p.userName, p.reference) + '</td>' +
+        '<td>' + A.esc(p.providerLabel) + '</td>' +
+        '<td class="num right">' + A.money(p.amountMinor, p.currency) + '</td>' +
+        '<td class="right">' + A.pill(p.status) + '</td>' +
+        '<td class="right muted">' + A.ago(p.created) + '</td></tr>';
+    });
+
+    var waiting = queue.slice(0, 6).map(function (w) {
+      return '<tr><td>' + A.who(w.userName, w.destination) + '</td>' +
+        '<td class="num right">' + A.money(w.amountMinor, w.currency) + '</td>' +
+        '<td class="right muted">' + A.ago(w.created) + '</td></tr>';
+    });
+
+    page.innerHTML =
+      kpis +
+      '<div class="split">' +
+        A.card('Money in and out, last 14 days', bars) +
+        A.card('Payouts waiting',
+          A.table([{ label: 'Customer' }, { label: 'Amount', right: true },
+                   { label: 'Waiting', right: true }], waiting),
+          '<a class="btn btn-ghost btn-sm" href="withdrawals.html">Open queue</a>', true) +
+      '</div>' +
+      A.card('Recent deposits',
+        A.table([
+          { label: 'Customer' }, { label: 'Method' }, { label: 'Amount', right: true },
+          { label: 'Status', right: true }, { label: 'When', right: true }
+        ], recent),
+        '<a class="btn btn-ghost btn-sm" href="payments.html">See all</a>', true) +
+      (A.data.live ? '' :
+        '<div class="foot-note">Mock data held in the browser. ' +
+        'Set apiBase in assets/js/config.js to read from the API.</div>');
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

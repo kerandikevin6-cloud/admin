@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Deposits</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="payments" data-title="Deposits">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/mock.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;   /* not signed in */
+
+  var page = document.getElementById('page');
+  var state = { q: '', status: 'all', method: 'all' };
+  var rows = [], total = 0, loading = false, failure = null, timer = null;
+
+  function search(value) {
+    state.q = value;
+    clearTimeout(timer);
+    timer = setTimeout(load, A.data.live ? 300 : 0);
+  }
+
+  async function load() {
+    loading = true; failure = null; paint();
+    try {
+      var out = await A.data.payments({
+        q: state.q, status: state.status,
+        method: state.method,
+        provider: state.method === 'mpesa' ? 'payhero' :
+                  state.method === 'card' ? 'paystack' : 'all'
+      });
+      rows = out.payments; total = out.total;
+    } catch (err) {
+      failure = err.message;
+    }
+    loading = false;
+    paint();
+  }
+
+  function paint() {
+    var settled = rows.filter(function (p) { return p.status === 'success'; });
+    var gross = settled.reduce(function (a, p) { return a + p.amountMinor; }, 0);
+    var stuck = rows.filter(function (p) { return p.status === 'pending'; }).length;
+    var failed = rows.filter(function (p) { return p.status === 'failed'; }).length;
+    var rate = rows.length ? settled.length / rows.length * 100 : 0;
+
+    var kpis = '<div class="kpis">' +
+      A.kpi('Collected', A.shortMoney(gross, 'KES'), 'in this view') +
+      A.kpi('Settlement rate', rate.toFixed(1) + '%', 'of attempts', rate >= 85 ? 'pos' : 'neg') +
+      A.kpi('Failed', A.count(failed), 'customer or provider declined') +
+      /* Stuck pendings are the ones that cost real money: the customer
+         paid and is waiting. Called out, not buried. */
+      A.kpi('Still pending', A.count(stuck),
+        stuck ? 'check these first' : 'nothing waiting', stuck ? 'neg' : 'pos') +
+    '</div>';
+
+    var filters = '<div class="filters">' +
+      '<label class="field">' + A.icon('search', 15) +
+        '<input id="q" type="search" placeholder="Reference, name or email" value="' +
+        A.esc(state.q) + '" aria-label="Search deposits"></label>' +
+      '<div class="seg" id="statusSeg">' +
+        ['all', 'success', 'pending', 'failed'].map(function (v) {
+          return '<button data-status="' + v + '" class="' + (state.status === v ? 'on' : '') + '">' +
+            (v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)) + '</button>';
+        }).join('') +
+      '</div>' +
+      '<div class="seg" id="methodSeg">' +
+        [['all', 'Every method'], ['mpesa', 'M-Pesa'], ['card', 'Card']].map(function (m) {
+          return '<button data-method="' + m[0] + '" class="' + (state.method === m[0] ? 'on' : '') + '">' +
+            m[1] + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+
+    var body;
+    if (loading) body = A.loadingBlock('Loading deposits');
+    else if (failure) body = A.errorBlock(failure, 'retry');
+    else body = A.table([
+      { label: 'Reference' }, { label: 'Customer' }, { label: 'Method' },
+      { label: 'Paid', right: true }, { label: 'Credited', right: true },
+      { label: 'Status', right: true }, { label: 'When', right: true }
+    ], rows.map(function (p) {
+      return '<tr class="row-click" data-payment="' + A.esc(p.id) + '">' +
+        '<td class="num">' + A.esc(p.reference) + '</td>' +
+        '<td>' + A.who(p.userName, p.userEmail) + '</td>' +
+        '<td>' + A.esc(p.providerLabel) + '</td>' +
+        '<td class="num right">' + A.money(p.amountMinor, p.currency) + '</td>' +
+        '<td class="num right">' +
+          (p.creditedMinor == null ? '\u2014' : A.money(p.creditedMinor)) + '</td>' +
+        '<td class="right">' + A.pill(p.status) + '</td>' +
+        '<td class="right muted">' + A.dateTime(p.created) + '</td>' +
+      '</tr>';
+    }));
+
+    page.innerHTML = kpis + filters +
+      A.card(loading ? 'Deposits' : rows.length + ' of ' + total + ' deposits', body, '', true);
+    wire();
+  }
+
+  function wire() {
+    var q = document.getElementById('q');
+    if (q) q.addEventListener('input', function () {
+      var at = this.selectionStart;
+      search(this.value);
+      var box = document.getElementById('q');
+      if (box) { box.focus(); try { box.setSelectionRange(at, at); } catch (e) {} }
+    });
+
+    var ss = document.getElementById('statusSeg');
+    if (ss) ss.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-status]');
+      if (b) { state.status = b.getAttribute('data-status'); load(); }
+    });
+    var ms = document.getElementById('methodSeg');
+    if (ms) ms.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-method]');
+      if (b) { state.method = b.getAttribute('data-method'); load(); }
+    });
+    var retry = document.getElementById('retry');
+    if (retry) retry.addEventListener('click', load);
+
+    page.addEventListener('click', function (e) {
+      var row = e.target.closest('[data-payment]');
+      if (row) show(row.getAttribute('data-payment'));
+    });
+  }
+
+  function show(id) {
+    var p = rows.filter(function (x) { return x.id === id; })[0];
+    if (!p) return;
+
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + A.money(p.amountMinor, p.currency) + '</h2>' +
+        '<p>' + A.esc(p.reference) + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div><div class="sect-label">Payment</div>' +
+          '<div class="kv"><span>Status</span><b>' + A.pill(p.status) + '</b></div>' +
+          '<div class="kv"><span>Method</span><b>' + A.esc(p.providerLabel) + '</b></div>' +
+          '<div class="kv"><span>Provider</span><b>' + A.esc(p.provider) + '</b></div>' +
+          '<div class="kv"><span>Amount paid</span><b class="num">' +
+            A.money(p.amountMinor, p.currency) + '</b></div>' +
+          '<div class="kv"><span>Credited</span><b class="num">' +
+            (p.creditedMinor == null ? 'Not credited' : A.money(p.creditedMinor)) + '</b></div>' +
+          '<div class="kv"><span>Started</span><b>' + A.dateTime(p.created) + '</b></div>' +
+          (p.failureReason
+            ? '<div class="kv"><span>Reason</span><b>' + A.esc(p.failureReason) + '</b></div>' : '') +
+        '</div>' +
+        '<div><div class="sect-label">Customer</div>' +
+          '<div class="kv"><span>Name</span><b>' + A.esc(p.userName) + '</b></div>' +
+          '<div class="kv"><span>Email</span><b>' + A.esc(p.userEmail) + '</b></div>' +
+        '</div>' +
+      '</div>' +
+      (p.status === 'pending'
+        ? '<div class="drawer-foot">' +
+            '<button class="btn btn-primary btn-sm" data-act="recheck">' +
+              'Ask the provider again</button>' +
+          '</div>'
+        : ''));
+
+    var foot = document.querySelector('.drawer-foot');
+    if (foot) foot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act="recheck"]');
+      if (!b) return;
+      b.disabled = true;
+      b.innerHTML = A.loader('sm') + 'Checking';
+      try {
+        var fresh = await A.data.recheckPayment(p.id);
+        A.closeAll();
+        await load();
+        A.toast(fresh && fresh.status !== 'pending'
+          ? 'Provider says: ' + fresh.status
+          : 'Still pending at the provider');
+      } catch (err) {
+        b.disabled = false;
+        b.textContent = 'Ask the provider again';
+        A.toast(err.message);
+      }
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

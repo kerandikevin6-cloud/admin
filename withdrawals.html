@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Withdrawals</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="withdrawals" data-title="Withdrawals">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/mock.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;   /* not signed in */
+
+  var page = document.getElementById('page');
+  /* Pending first: this page exists to clear a queue. */
+  var state = { status: 'pending' };
+  var rows = [], all = [], loading = false, failure = null;
+
+  async function load() {
+    loading = true; failure = null; paint();
+    try {
+      var results = await Promise.all([
+        A.data.withdrawals({ status: state.status }),
+        A.data.withdrawals({ status: 'all' })
+      ]);
+      rows = results[0].withdrawals;
+      all = results[1].withdrawals;
+    } catch (err) {
+      failure = err.message;
+    }
+    loading = false;
+    paint();
+  }
+
+  function paint() {
+    var pending = all.filter(function (w) { return w.status === 'pending'; });
+    var held = pending.reduce(function (a, w) { return a + w.amountMinor; }, 0);
+    var paid = all.filter(function (w) { return w.status === 'paid'; });
+    var paidMinor = paid.reduce(function (a, w) { return a + w.amountMinor; }, 0);
+    var oldest = pending.length
+      ? Math.min.apply(null, pending.map(function (w) { return w.created; })) : null;
+    var stale = oldest && (A.data.now() - oldest) > 3600000;
+
+    var kpis = '<div class="kpis">' +
+      A.kpi('Awaiting review', A.count(pending.length),
+        pending.length ? 'clear these today' : 'queue is empty',
+        pending.length ? 'neg' : 'pos') +
+      A.kpi('Held for payout', A.money(held), 'debited, not yet sent') +
+      A.kpi('Paid out', A.money(paidMinor), A.count(paid.length) + ' payouts') +
+      /* The oldest waiting request is the one a customer is angry about,
+         so it gets a tile rather than being inferred from a list. */
+      A.kpi('Oldest waiting', oldest ? A.ago(oldest) : '\u2014',
+        oldest ? 'target is under an hour' : 'nothing waiting',
+        stale ? 'neg' : 'pos') +
+    '</div>';
+
+    var filters = '<div class="filters"><div class="seg" id="statusSeg">' +
+      [['pending', 'Awaiting review'], ['approved', 'Approved'], ['paid', 'Paid'],
+       ['rejected', 'Rejected'], ['all', 'All']].map(function (s) {
+        return '<button data-status="' + s[0] + '" class="' +
+          (state.status === s[0] ? 'on' : '') + '">' + s[1] + '</button>';
+      }).join('') + '</div></div>';
+
+    var body;
+    if (loading) body = A.loadingBlock('Loading requests');
+    else if (failure) body = A.errorBlock(failure, 'retry');
+    else body = A.table([
+      { label: 'Customer' }, { label: 'Send to' }, { label: 'Amount', right: true },
+      { label: 'Status', right: true }, { label: 'Waiting', right: true }, { label: '', right: true }
+    ], rows.map(function (w) {
+      return '<tr class="row-click" data-w="' + A.esc(w.id) + '">' +
+        '<td>' + A.who(w.userName, w.userEmail) + '</td>' +
+        '<td class="num">' + (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</td>' +
+        '<td class="num right">' + A.money(w.amountMinor, w.currency) + '</td>' +
+        '<td class="right">' + A.pill(w.status) + '</td>' +
+        '<td class="right muted">' + A.ago(w.created) + '</td>' +
+        '<td class="right">' + (w.status === 'pending'
+          ? '<button class="btn btn-quiet btn-sm">Review</button>'
+          : '<span class="muted">\u2014</span>') + '</td>' +
+      '</tr>';
+    }));
+
+    page.innerHTML = kpis + filters +
+      A.card(loading ? 'Requests' : rows.length + ' request' + (rows.length === 1 ? '' : 's'),
+        body, '', true) +
+      '<div class="foot-note">Approving records that the payout has been sent. ' +
+        'Rejecting returns the held funds to the customer\u2019s balance.</div>';
+    wire();
+  }
+
+  function wire() {
+    var seg = document.getElementById('statusSeg');
+    if (seg) seg.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-status]');
+      if (b) { state.status = b.getAttribute('data-status'); load(); }
+    });
+    var retry = document.getElementById('retry');
+    if (retry) retry.addEventListener('click', load);
+
+    page.addEventListener('click', function (e) {
+      var row = e.target.closest('[data-w]');
+      if (row) show(row.getAttribute('data-w'));
+    });
+  }
+
+  function show(id) {
+    var w = rows.filter(function (x) { return x.id === id; })[0];
+    if (!w) return;
+
+    var phoneMatches = w.userPhone && w.destination && w.userPhone === w.destination;
+
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + A.money(w.amountMinor, w.currency) + '</h2>' +
+        '<p>' + A.esc(w.userName) + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div><div class="sect-label">Request</div>' +
+          '<div class="kv"><span>Status</span><b>' + A.pill(w.status) + '</b></div>' +
+          '<div class="kv"><span>Amount</span><b class="num">' +
+            A.money(w.amountMinor, w.currency) + '</b></div>' +
+          '<div class="kv"><span>Send to</span><b class="num">' +
+            (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</b></div>' +
+          '<div class="kv"><span>Requested</span><b>' + A.dateTime(w.created) + '</b></div>' +
+          (w.settled ? '<div class="kv"><span>Closed</span><b>' +
+            A.dateTime(w.settled) + '</b></div>' : '') +
+        '</div>' +
+        '<div><div class="sect-label">Customer checks</div>' +
+          '<div class="kv"><span>Identity</span><b>' +
+            (w.userKyc ? A.pill(w.userKyc) : '\u2014') + '</b></div>' +
+          '<div class="kv"><span>Account</span><b>' +
+            (w.userStatus ? A.pill(w.userStatus) : '\u2014') + '</b></div>' +
+          '<div class="kv"><span>Payout number matches profile</span><b>' +
+            (phoneMatches ? 'Yes' : 'No \u2014 check this') + '</b></div>' +
+          '<div class="kv"><span>Contracts placed</span><b class="num">' +
+            A.count(w.userTrades || 0) + '</b></div>' +
+        '</div>' +
+      '</div>' +
+      (w.status === 'pending'
+        ? '<div class="drawer-foot">' +
+            '<button class="btn btn-primary btn-sm" data-act="approve">' +
+              A.icon('check', 15) + 'Approve and pay</button>' +
+            '<button class="btn btn-danger btn-sm" data-act="reject">Reject and refund</button>' +
+          '</div>'
+        : ''));
+
+    var foot = document.querySelector('.drawer-foot');
+    if (foot) foot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act]');
+      if (!b) return;
+      var act = b.getAttribute('data-act');
+
+      [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = true; });
+      b.innerHTML = A.loader('sm') + (act === 'approve' ? 'Approving' : 'Rejecting');
+
+      try {
+        if (act === 'approve') await A.data.approveWithdrawal(w.id);
+        else await A.data.rejectWithdrawal(w.id);
+      } catch (err) {
+        [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = false; });
+        A.toast(err.message);
+        return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast(act === 'approve'
+        ? A.money(w.amountMinor, w.currency) + ' marked paid to ' + w.userName
+        : 'Rejected \u2014 ' + A.money(w.amountMinor, w.currency) + ' returned to ' + w.userName);
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

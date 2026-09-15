@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nexas Admin — Sign in</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="login" class="signin-page">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/mock.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+
+<main class="signin">
+  <div class="signin-card">
+    <div class="signin-brand"><b>Nexas</b><span>Admin</span></div>
+
+    <h1>Sign in to the console</h1>
+    <p class="signin-sub">Operator access only. Every action here is recorded against your name.</p>
+
+    <form id="signinForm" novalidate>
+      <div class="field-block">
+        <label for="email">Work email</label>
+        <div class="field"><input id="email" type="email" autocomplete="username"
+          placeholder="you@nexas.trade" autofocus></div>
+        <div class="field-error" id="emailError" hidden></div>
+      </div>
+
+      <div class="field-block">
+        <label for="password">Password</label>
+        <div class="field">
+          <input id="password" type="password" autocomplete="current-password" placeholder="Your password">
+          <button type="button" class="reveal" id="reveal" aria-label="Show password">Show</button>
+        </div>
+        <div class="field-error" id="passwordError" hidden></div>
+      </div>
+
+      <div class="field-error signin-error" id="formError" hidden></div>
+
+      <button class="btn btn-primary signin-go" type="submit" id="go">Sign in</button>
+    </form>
+
+    <div class="signin-note" id="gateNote"></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var A = window.Admin;
+
+  /* Already signed in? Nothing to do here. */
+  if (A.session()) { location.replace('index.html'); return; }
+
+  var form = document.getElementById('signinForm');
+  var email = document.getElementById('email');
+  var password = document.getElementById('password');
+  var go = document.getElementById('go');
+
+  document.getElementById('reveal').addEventListener('click', function () {
+    var show = password.type === 'password';
+    password.type = show ? 'text' : 'password';
+    this.textContent = show ? 'Hide' : 'Show';
+    this.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+  });
+
+  function setError(id, message) {
+    var box = document.getElementById(id);
+    box.textContent = message || '';
+    box.hidden = !message;
+    var wrap = box.previousElementSibling;
+    if (wrap && wrap.classList.contains('field')) wrap.classList.toggle('bad', !!message);
+  }
+
+  function clearErrors() {
+    setError('emailError', '');
+    setError('passwordError', '');
+    setError('formError', '');
+  }
+
+  /* Clear a field's complaint the moment it is corrected. */
+  [email, password].forEach(function (input) {
+    input.addEventListener('input', function () {
+      setError(input.id + 'Error', '');
+      setError('formError', '');
+    });
+  });
+
+  /* Say which gate is actually in force, so nobody assumes the console
+     is protected when it is running on the browser list. */
+  var live = window.AdminAPI && window.AdminAPI.live;
+  document.getElementById('gateNote').innerHTML = live
+    ? '<b>Checked on the server.</b> Your credentials go to the Nexas API and the ' +
+      'operator role is read from your profile. A customer account signing in here ' +
+      'is refused.'
+    : '<b>This gate is a stand-in.</b> No API is configured, so it checks a list held ' +
+      'in the browser \u2014 it keeps an honest person out of the wrong screen and ' +
+      'nothing more. Set <span class="num">apiBase</span> in config.js to check on the server.' +
+      '<div class="signin-demo"><span>Demo sign-in</span>' +
+      '<code>ops@nexas.trade</code><code>console1234</code></div>';
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearErrors();
+
+    var mail = email.value.trim().toLowerCase();
+    var pass = password.value;
+    var bad = null;
+
+    if (!mail) { setError('emailError', 'Enter your work email'); bad = bad || email; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) {
+      setError('emailError', 'That does not look like an email address');
+      bad = bad || email;
+    }
+    if (!pass) { setError('passwordError', 'Enter your password'); bad = bad || password; }
+
+    if (bad) { bad.focus(); return; }
+
+    go.disabled = true;
+    go.innerHTML = A.loader('sm') + 'Checking';
+
+    var operator = null, failure = null;
+    try {
+      operator = await A.signIn(mail, pass);
+    } catch (err) {
+      /* A refused role is worth saying plainly — that person has an
+         account, it just is not an operator one. Anything else stays
+         vague, because naming which half was wrong tells an outsider
+         which addresses are real. */
+      failure = /console/i.test(err.message) || /reach/i.test(err.message)
+        ? err.message : null;
+    }
+
+    if (!operator) {
+      go.disabled = false;
+      go.textContent = 'Sign in';
+      setError('formError',
+        failure || 'That email and password do not match an operator account.');
+      password.value = '';
+      password.focus();
+      return;
+    }
+
+    go.innerHTML = A.loader('sm') + 'Opening console';
+    location.replace('index.html');
+  });
+})();
+</script>
+</body>
+</html>
