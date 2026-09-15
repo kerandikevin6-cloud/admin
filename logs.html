@@ -104,6 +104,11 @@
         A.money(a.minDepositMinor) + '</b></div>' +
       '<div class="kv"><span>Rate</span><b class="num">1 USD = ' +
         A.esc(String(a.usdRateKes)) + ' KES</b></div>' +
+      '<div class="kv"><span>M-Pesa credentials</span><b>' +
+        A.esc(a.payheroAuth || 'unknown') + '</b></div>' +
+      '<div class="kv"><span>M-Pesa channel</span><b class="num">' +
+        (a.payheroChannel ? A.esc(a.payheroChannel) : 'not set — M-Pesa will refuse') +
+        '</b></div>' +
       '<div class="kv"><span>Site</span><b class="num">' + A.esc(a.appUrl) + '</b></div>' +
       '<div class="kv"><span>Allowed origins</span><b class="num">' +
         (a.corsOrigins && a.corsOrigins.length
