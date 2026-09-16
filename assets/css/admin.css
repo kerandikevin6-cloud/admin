@@ -571,3 +571,14 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .log-src{
   font-family:var(--mono);font-size:11px;color:var(--text-2);
 }
+
+/* ---------------- tier badge ----------------
+   The one place in the console with a boxed label. Everything else uses
+   coloured text, because a table of forty rows reads as a grid of blocks
+   otherwise; this earns the box by being rare, which is the same reason
+   it is legible at a glance. */
+.tier-badge{
+  display:inline-block;margin-left:8px;padding:2px 6px;vertical-align:1px;
+  font-size:9.5px;font-weight:700;letter-spacing:.09em;
+  color:var(--purple);border:1px solid var(--purple);
+}

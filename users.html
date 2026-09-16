@@ -80,7 +80,15 @@
       { label: 'Trades', right: true }, { label: 'Joined', right: true }
     ], rows.map(function (u) {
       return '<tr class="row-click" data-user="' + A.esc(u.id) + '">' +
-        '<td>' + A.who(u.name, u.email) + '</td>' +
+        /* The badge sits on the name line rather than in a column of
+           its own: a tier column would be blank ninety times out of a
+           hundred, and a column that is mostly empty reads as missing
+           data rather than as "no". Built here instead of through
+           A.who(), which escapes its arguments and would print the
+           markup rather than render it. */
+        '<td><div class="cell-main">' + A.esc(u.name) +
+            (u.tier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') + '</div>' +
+          '<div class="cell-sub">' + A.esc(u.email) + '</div></td>' +
         '<td>' + A.esc(u.countryName || u.country || '') +
           '<div class="cell-sub">' + (u.phone ? '+' + A.esc(u.phone) : '') + '</div></td>' +
         '<td>' + A.pill(u.kyc) + '</td>' +
