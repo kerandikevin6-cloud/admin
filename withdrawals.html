@@ -91,7 +91,7 @@
             (w.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
             (w.userDemoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</div>' +
           '<div class="cell-sub">' + A.esc(w.userEmail) + '</div></td>' +
-        '<td class="num">' + (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</td>' +
+        '<td class="num">' + (w.destination ? A.esc(w.destination) : '\u2014') + '</td>' +
         '<td class="num right">' + A.usd(w.amountMinor) + '</td>' +
         '<td class="right">' + A.pill(w.status) + '</td>' +
         '<td class="right muted">' + A.ago(w.created) + '</td>' +
@@ -128,7 +128,10 @@
     var w = rows.filter(function (x) { return x.id === id; })[0];
     if (!w) return;
 
-    var phoneMatches = w.userPhone && w.destination && w.userPhone === w.destination;
+    /* Compared against the phone on the request, not the printed label:
+       a card or a wallet address has no phone to match, and this check
+       must say nothing rather than say no. */
+    var phoneMatches = w.userPhone && w.destinationPhone && w.userPhone === w.destinationPhone;
 
     A.openDrawer(
       '<div class="drawer-head">' +
@@ -141,8 +144,9 @@
           '<div class="kv"><span>Status</span><b>' + A.pill(w.status) + '</b></div>' +
           '<div class="kv"><span>Amount</span><b class="num">' +
             A.usd(w.amountMinor) + '</b></div>' +
+          '<div class="kv"><span>Method</span><b>' + A.esc(w.method || 'mpesa') + '</b></div>' +
           '<div class="kv"><span>Send to</span><b class="num">' +
-            (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</b></div>' +
+            (w.destination ? A.esc(w.destination) : '\u2014') + '</b></div>' +
           '<div class="kv"><span>Requested</span><b>' + A.dateTime(w.created) + '</b></div>' +
           (w.settled ? '<div class="kv"><span>Closed</span><b>' +
             A.dateTime(w.settled) + '</b></div>' : '') +
