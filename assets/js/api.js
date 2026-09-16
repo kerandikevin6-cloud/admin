@@ -230,6 +230,22 @@
     },
 
     /* ---------- system ---------- */
+    /* ---------- verifications ---------- */
+    verifications: async function (status) {
+      var out = await call('/admin/verifications?status=' + encodeURIComponent(status || 'pending'));
+      return (out.verifications || []).map(function (v) {
+        v.at = ms(v.at);
+        v.reviewedAt = ms(v.reviewedAt);
+        v.userJoined = ms(v.userJoined);
+        return v;
+      });
+    },
+
+    decideVerification: async function (id, action, note) {
+      return call('/admin/verifications/' + encodeURIComponent(id),
+        { method: 'POST', body: { action: action, note: note } });
+    },
+
     /* ---------- the VIP demo wallet ---------- */
     wallet: async function (userId) {
       var out = await call('/admin/users/' + encodeURIComponent(userId) + '/wallet');

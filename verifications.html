@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Novi Admin, Verifications</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="verifications" data-title="Verifications">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var me = A.session();
+  var page = document.getElementById('page');
+  var rows = [];
+  var view = 'pending';
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading verifications');
+    try {
+      rows = await A.data.verifications(view);
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      var r = document.getElementById('retry');
+      if (r) r.addEventListener('click', load);
+      return;
+    }
+    render();
+  }
+
+  function tabs() {
+    return '<div class="filters">' +
+      '<div class="seg">' +
+        ['pending', 'approved', 'rejected'].map(function (v) {
+          return '<button data-view="' + v + '"' +
+            (v === view ? ' class="on"' : '') + '>' +
+            v.charAt(0).toUpperCase() + v.slice(1) + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>';
+  }
+
+  function render() {
+    if (!rows.length) {
+      page.innerHTML = tabs() + A.card('Verifications',
+        A.emptyBlock(
+          view === 'pending' ? 'Nothing waiting' : 'Nothing here',
+          view === 'pending'
+            ? 'Documents customers send appear here, oldest first, so nobody waits longer than the person before them.'
+            : 'Decisions you make show up under this tab.'));
+      wire();
+      return;
+    }
+
+    var list = rows.map(function (v) {
+      return '<tr class="row-click" data-verif="' + A.esc(v.id) + '">' +
+        '<td><div class="cell-main">' + A.esc(v.userName || 'Unnamed') +
+            (v.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') + '</div>' +
+          '<div class="cell-sub">' + A.esc(v.userEmail || '') + '</div></td>' +
+        '<td>' + A.esc(v.userPhone ? '+' + v.userPhone : '') +
+          '<div class="cell-sub">' + A.esc(v.userCountry || '') + '</div></td>' +
+        '<td>' + (v.kind === 'proof_of_address' ? 'Proof of address' : 'Government ID') + '</td>' +
+        '<td>' + A.pill(v.status) + '</td>' +
+        '<td class="right muted">' + A.ago(v.at) + '</td>' +
+      '</tr>';
+    });
+
+    page.innerHTML = tabs() +
+      A.card(rows.length + (view === 'pending' ? ' waiting' : ' ' + view),
+        A.table([
+          { label: 'Customer' }, { label: 'Contact' }, { label: 'Document' },
+          { label: 'Status' }, { label: 'Sent', right: true }
+        ], list), '', true) +
+      '<div class="foot-note">Documents open in a link that expires after ten ' +
+        'minutes. The bucket is private, so a link pasted anywhere else is dead ' +
+        'before it can be opened.</div>';
+    wire();
+  }
+
+  function wire() {
+    page.addEventListener('click', function (e) {
+      var tab = e.target.closest('[data-view]');
+      if (tab) { view = tab.getAttribute('data-view'); load(); return; }
+      var row = e.target.closest('[data-verif]');
+      if (row) open(row.getAttribute('data-verif'));
+    });
+  }
+
+  function open(id) {
+    var v = rows.filter(function (x) { return x.id === id; })[0];
+    if (!v) return;
+    var decided = v.status !== 'pending';
+
+    /* The document itself, inline where possible. A reviewer who has to
+       download a file to look at it will approve things they have not
+       looked at. */
+    var preview = !v.documentUrl
+      ? '<div class="muted" style="font-size:12.5px">The document link could not be created.</div>'
+      : (v.mimeType === 'application/pdf'
+          ? '<a class="btn btn-ghost btn-sm" href="' + A.esc(v.documentUrl) +
+            '" target="_blank" rel="noopener noreferrer">Open the PDF</a>'
+          : '<a href="' + A.esc(v.documentUrl) + '" target="_blank" rel="noopener noreferrer">' +
+            '<img src="' + A.esc(v.documentUrl) + '" alt="Submitted document" class="kyc-doc"></a>');
+
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + A.esc(v.userName || 'Unnamed') + '</h2>' +
+        '<p>' + A.esc(v.userEmail || '') + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div><div class="sect-label">Document</div>' + preview + '</div>' +
+        '<div><div class="sect-label">Submission</div>' +
+          '<div class="kv"><span>Type</span><b>' +
+            (v.kind === 'proof_of_address' ? 'Proof of address' : 'Government ID') + '</b></div>' +
+          '<div class="kv"><span>Sent</span><b>' + A.dateTime(v.at) + '</b></div>' +
+          '<div class="kv"><span>Status</span><b>' + A.pill(v.status) + '</b></div>' +
+          (v.note ? '<div class="kv"><span>Note</span><b>' + A.esc(v.note) + '</b></div>' : '') +
+        '</div>' +
+        '<div><div class="sect-label">Account</div>' +
+          '<div class="kv"><span>Phone</span><b class="num">' +
+            (v.userPhone ? '+' + A.esc(v.userPhone) : '') + '</b></div>' +
+          '<div class="kv"><span>Country</span><b>' + A.esc(v.userCountry || '') + '</b></div>' +
+          '<div class="kv"><span>Tier</span><b>' + A.pill(v.userTier || 'standard') + '</b></div>' +
+          '<div class="kv"><span>Joined</span><b>' +
+            (v.userJoined ? A.date(v.userJoined) : '') + '</b></div>' +
+        '</div>' +
+        (decided ? '' :
+          '<div class="field-block"><label for="vNote">Reason, if you reject</label>' +
+            '<div class="field"><input id="vNote" placeholder="Name and address not readable"></div>' +
+            '<span class="hint">Sent to the customer, so they know what to send instead.</span>' +
+          '</div>') +
+      '</div>' +
+      (decided ? '' :
+        '<div class="drawer-foot">' +
+          '<button class="btn btn-primary btn-sm" data-act="approve">' +
+            A.icon('check', 15) + 'Approve</button>' +
+          '<button class="btn btn-danger btn-sm" data-act="reject">Reject</button>' +
+        '</div>'));
+
+    var foot = document.querySelector('.drawer-foot');
+    if (foot) foot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act]');
+      if (!b) return;
+      var act = b.getAttribute('data-act');
+      var note = ((document.getElementById('vNote') || {}).value || '').trim();
+
+      if (act === 'reject' && !note) {
+        A.toast('Say why, so they know what to send instead');
+        var box = document.getElementById('vNote');
+        if (box) box.focus();
+        return;
+      }
+
+      [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = true; });
+      b.innerHTML = A.loader('sm') + 'Saving';
+
+      try {
+        await A.data.decideVerification(v.id, act, note || undefined);
+      } catch (err) {
+        [].forEach.call(foot.querySelectorAll('button'), function (x) { x.disabled = false; });
+        b.textContent = act === 'approve' ? 'Approve' : 'Reject';
+        A.toast(err.message);
+        return;
+      }
+
+      A.closeAll();
+      await load();
+      A.toast(act === 'approve'
+        ? (v.userName || 'The account') + ' is verified. Withdrawals are open.'
+        : 'Rejected, and the reason was sent.');
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

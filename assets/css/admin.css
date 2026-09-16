@@ -587,3 +587,11 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
    true about the account rather than what they can do to it. */
 .demo-on{color:var(--warn);font-weight:600}
 .tier-badge.warn{color:var(--warn);border-color:var(--warn)}
+
+/* The submitted document, shown rather than downloaded. A reviewer who
+   has to open a file to see it will approve things they have not seen. */
+.kyc-doc{
+  display:block;width:100%;max-height:420px;object-fit:contain;
+  background:var(--surface-2);border:1px solid var(--line);
+}
+.seg button.on{background:var(--purple);color:#fff}
