@@ -582,3 +582,8 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
   font-size:9.5px;font-weight:700;letter-spacing:.09em;
   color:var(--purple);border:1px solid var(--purple);
 }
+
+/* A staged-wins account, said plainly where an operator reads what is
+   true about the account rather than what they can do to it. */
+.demo-on{color:var(--warn);font-weight:600}
+.tier-badge.warn{color:var(--warn);border-color:var(--warn)}

@@ -83,7 +83,14 @@
       { label: 'Status', right: true }, { label: 'Waiting', right: true }, { label: '', right: true }
     ], rows.map(function (w) {
       return '<tr class="row-click" data-w="' + A.esc(w.id) + '">' +
-        '<td>' + A.who(w.userName, w.userEmail) + '</td>' +
+        /* The VIP tag rides with the name, because it changes what this
+           row means: a payout on a prop balance, not money somebody
+           sent. Built directly rather than through A.who(), which
+           escapes its arguments. */
+        '<td><div class="cell-main">' + A.esc(w.userName) +
+            (w.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
+            (w.userDemoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</div>' +
+          '<div class="cell-sub">' + A.esc(w.userEmail) + '</div></td>' +
         '<td class="num">' + (w.destination ? '+' + A.esc(w.destination) : '\u2014') + '</td>' +
         '<td class="num right">' + A.usd(w.amountMinor) + '</td>' +
         '<td class="right">' + A.pill(w.status) + '</td>' +

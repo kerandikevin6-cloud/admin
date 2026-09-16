@@ -87,6 +87,7 @@
       kyc: u.kyc, status: u.status, role: u.role,
       /* Which rail this account is on. Absent means Standard: real money. */
       tier: u.tier || 'standard',
+      demoMode: !!u.demoMode,
       balanceMinor: u.balanceMinor, demoMinor: u.demoMinor,
       trades: u.trades, referrals: 0,
       joined: ms(u.joined), lastSeen: ms(u.lastSeen) || ms(u.joined)
@@ -109,6 +110,7 @@
       userName: w.userName || '', userEmail: w.userEmail || '',
       userKyc: w.userKyc, userStatus: w.userStatus,
       userPhone: w.userPhone, userTrades: w.userTrades,
+      userTier: w.userTier || 'standard', userDemoMode: !!w.userDemoMode,
       amountMinor: w.amountMinor, currency: w.currency,
       method: w.method, destination: w.destination,
       status: w.status, created: ms(w.created), settled: ms(w.settled)
