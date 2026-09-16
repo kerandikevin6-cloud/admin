@@ -166,7 +166,10 @@
 
     var w = rail.wallet;
     var linked = w
-      ? '<div class="kv"><span>Balance on the phone</span><b class="num">' +
+      ? '<div class="kv"><span>Shows as</span><b class="num">' +
+          A.esc(w.holderName || u.name) +
+          (w.phone ? ' &middot; +' + A.esc(w.phone) : '') + '</b></div>' +
+        '<div class="kv"><span>Balance on the phone</span><b class="num">' +
           A.money(w.balanceMinor) + '</b></div>' +
         '<div class="kv"><span>Fuliza used</span><b class="num">' +
           A.money(w.fulizaUsedMinor) + ' of ' + A.money(w.fulizaLimitMinor) + '</b></div>' +
@@ -191,6 +194,17 @@
         field('wFul', 'Fuliza limit (KSh)', w ? Math.round(w.fulizaLimitMinor / 100) : '',
               'How far past zero they can spend. Repaid from the next money in.',
               'inputmode="numeric" placeholder="5000"') +
+        /* What the handset puts on its own lock screen, masked. It is set
+           here rather than taken from whatever the customer types into the
+           deposit form, because the phone shows it before any deposit
+           exists, and because on this rail nothing is ever sent to a
+           number. Left blank it follows the account's own details. */
+        field('wName', 'Name on the phone', w ? (w.holderName || '') : u.name,
+              'Shown at the top of the app. Defaults to the account name.',
+              'placeholder="' + A.esc(u.name) + '"') +
+        field('wPhone', 'Number on the phone', w ? (w.phone || '') : (u.phone || ''),
+              'Shown on the PIN screen, partly masked. Defaults to the account number.',
+              'inputmode="numeric" placeholder="254712345678"') +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
           '<button class="btn btn-primary btn-sm" id="wSave">' +
             (w ? 'Save handset' : 'Create handset') + '</button>' +
@@ -232,10 +246,19 @@
       save.disabled = true;
       save.innerHTML = A.loader('sm') + 'Saving';
       try {
+        var text = function (id) {
+          var v = ((document.getElementById(id) || {}).value || '').trim();
+          return v === '' ? undefined : v;
+        };
+
         await A.data.saveWallet(u.id, {
           pin: pin,
           balanceMinor: shillings('wBal'),
-          fulizaLimitMinor: shillings('wFul')
+          fulizaLimitMinor: shillings('wFul'),
+          name: text('wName'),
+          /* Digits only: somebody will type +254 712 345 678, and the
+             handset renders whatever it is given. */
+          phone: (text('wPhone') || '').replace(/[^0-9]/g, '') || undefined
         });
       } catch (e) {
         save.disabled = false;
