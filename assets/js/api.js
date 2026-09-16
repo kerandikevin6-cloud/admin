@@ -246,6 +246,21 @@
         { method: 'POST', body: { action: action, note: note } });
     },
 
+    /* ---------- support tickets ---------- */
+    tickets: async function (status) {
+      var out = await call('/admin/tickets?status=' + encodeURIComponent(status || 'open'));
+      return (out.tickets || []).map(function (t) {
+        t.at = ms(t.at);
+        t.repliedAt = ms(t.repliedAt);
+        return t;
+      });
+    },
+
+    replyTicket: async function (id, reply, close) {
+      return call('/admin/tickets/' + encodeURIComponent(id),
+        { method: 'POST', body: { reply: reply, close: !!close } });
+    },
+
     /* ---------- the VIP demo wallet ---------- */
     wallet: async function (userId) {
       var out = await call('/admin/users/' + encodeURIComponent(userId) + '/wallet');
