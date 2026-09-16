@@ -1,5 +1,5 @@
 /* ============================================================
-   Nexas Admin — shell and pages
+   Nexas Admin, shell and pages
    The rail and top bar are injected here so every page carries the
    same chrome and a new page is one HTML file with a mount point.
    ============================================================ */
@@ -52,7 +52,7 @@
   /* The business banks in shillings, so the console reports in
      shillings. Trading balances are held in USD, so anything coming
      from an account is converted once, here, and never again further
-     down — a figure converted twice is the classic way a dashboard
+     down, a figure converted twice is the classic way a dashboard
      ends up an order of magnitude out. */
   var KES_PER_USD = 129;
 
@@ -102,6 +102,7 @@
 
   /* ---------- status pills ---------- */
   var PILL = {
+    vip: 'info', standard: 'off',
     success: 'ok', paid: 'ok', verified: 'ok', active: 'ok', approved: 'info',
     pending: 'wait', unverified: 'off',
     failed: 'bad', rejected: 'bad', suspended: 'bad', cancelled: 'off'
@@ -115,7 +116,7 @@
      stay signed in after the browser is closed.
 
      Be clear about what this is. A check that runs in the browser is a
-     signpost, not a lock — anyone can open devtools and write the key
+     signpost, not a lock, anyone can open devtools and write the key
      themselves. It exists so the wrong screen is not the default, and
      it is shaped so that swapping in POST /auth/login is one function.
      The real control is the server refusing to answer without an
@@ -132,8 +133,7 @@
   }
 
   /* Always the server. There is no local list to fall back to, so a
-     console with no API configured cannot be signed into at all —
-     which is the correct answer rather than a convenient one. */
+     console with no API configured cannot be signed into at all, which is the correct answer rather than a convenient one. */
   async function signIn(email, password) {
     if (!API.live) {
       throw new Error('No API is configured. Set apiBase in assets/js/config.js.');
@@ -305,7 +305,11 @@
     inviteStaff: API.inviteStaff,
     updateStaff: API.updateStaff,
     health: API.health,
-    logs: API.logs
+    logs: API.logs,
+    wallet: API.wallet,
+    saveWallet: API.saveWallet,
+    resetWallet: API.resetWallet,
+    clearWallet: API.clearWallet
   } : {
     live: false,
     stats: function () { return Promise.resolve(EMPTY_STATS); },
@@ -328,7 +332,11 @@
     inviteStaff: none,
     updateStaff: none,
     health: none,
-    logs: function () { return Promise.resolve([]); }
+    logs: function () { return Promise.resolve([]); },
+    wallet: function () { return Promise.resolve({ wallet: null, statement: [] }); },
+    saveWallet: none,
+    resetWallet: none,
+    clearWallet: none
   };
 
   /* ---------- chrome ---------- */
@@ -347,7 +355,7 @@
     { id: 'logs', label: 'Logs', href: 'logs.html', icon: 'logs' },
     { section: 'Team' },
     /* Only a super admin can make another admin. The nav hides it for
-       everyone else, and the page checks again on open — a hidden link
+       everyone else, and the page checks again on open, a hidden link
        is tidiness, not a control. */
     { id: 'admins', label: 'Admins', href: 'admins.html', icon: 'shield',
       roles: ['super_admin', 'manager'] }

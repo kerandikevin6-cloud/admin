@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nexas Admin — Sign in</title>
+<title>Novi Admin, Sign in</title>
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -25,7 +25,7 @@
       <div class="field-block">
         <label for="email">Work email</label>
         <div class="field"><input id="email" type="email" autocomplete="username"
-          placeholder="you@nexas.trade" autofocus></div>
+          placeholder="you@novibinary.com" autofocus></div>
         <div class="field-error" id="emailError" hidden></div>
       </div>
 
@@ -88,7 +88,7 @@
     });
   });
 
-  /* Nothing to say when an API is configured — that is the normal case.
+  /* Nothing to say when an API is configured, that is the normal case.
      It speaks up only when there is none, because then no password on
      earth will work and that is worth knowing before you try. */
   var note = document.getElementById('gateNote');
@@ -96,7 +96,7 @@
     note.hidden = true;
   } else {
     note.innerHTML = '<b>No API configured.</b> Set <span class="num">apiBase</span> ' +
-      'in assets/js/config.js to the address of the Nexas API before signing in.';
+      'in assets/js/config.js to the address of the Novi API before signing in.';
   }
 
   form.addEventListener('submit', async function (e) {
@@ -123,7 +123,7 @@
     try {
       operator = await A.signIn(mail, pass);
     } catch (err) {
-      /* A refused role is worth saying plainly — that person has an
+      /* A refused role is worth saying plainly, that person has an
          account, it just is not an operator one. Anything else stays
          vague, because naming which half was wrong tells an outsider
          which addresses are real. */

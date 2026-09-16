@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nexas Admin — Logs</title>
+<title>Novi Admin, Logs</title>
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -89,8 +89,7 @@
     '</div>';
   }
 
-  /* What the service believes about itself. Most support questions —
-     "why was that deposit refused", "where does the callback go" — are
+  /* What the service believes about itself. Most support questions, "why was that deposit refused", "where does the callback go", are
      answered by these four lines rather than by a log. */
   function appCard() {
     if (!health || !health.app) return '';
@@ -107,13 +106,13 @@
       '<div class="kv"><span>M-Pesa credentials</span><b>' +
         A.esc(a.payheroAuth || 'unknown') + '</b></div>' +
       '<div class="kv"><span>M-Pesa channel</span><b class="num">' +
-        (a.payheroChannel ? A.esc(a.payheroChannel) : 'not set — M-Pesa will refuse') +
+        (a.payheroChannel ? A.esc(a.payheroChannel) : 'not set, M-Pesa will refuse') +
         '</b></div>' +
       '<div class="kv"><span>Site</span><b class="num">' + A.esc(a.appUrl) + '</b></div>' +
       '<div class="kv"><span>Allowed origins</span><b class="num">' +
         (a.corsOrigins && a.corsOrigins.length
           ? A.esc(a.corsOrigins.join(', '))
-          : 'none — every browser call is refused') + '</b></div>' +
+          : 'none, every browser call is refused') + '</b></div>' +
       '<div class="sect-label" style="margin-top:14px">Webhook addresses</div>' +
       '<div class="kv"><span>Paystack</span><b class="num">' +
         A.esc(a.webhooks.paystack) + '</b></div>' +
@@ -180,7 +179,7 @@
       : A.emptyBlock('Nothing logged',
           filters.level !== 'all' || filters.source !== 'all' || filters.q
             ? 'No entries match this filter.'
-            : 'Events are written here when something needs attention — a refused ' +
+            : 'Events are written here when something needs attention, a refused ' +
               'origin, a provider that did not answer, a webhook that failed its ' +
               'signature. An empty list is the good case.');
 
@@ -189,7 +188,7 @@
       appCard() +
       filterBar() +
       A.card('Recent events' +
-        (errors ? ' — ' + errors + ' error' + (errors === 1 ? '' : 's') : '') +
+        (errors ? ', ' + errors + ' error' + (errors === 1 ? '' : 's') : '') +
         (warns ? ', ' + warns + ' warning' + (warns === 1 ? '' : 's') : ''),
         body, '', !!entries.length) +
       '<div class="foot-note">Only events worth acting on are kept: request logs ' +

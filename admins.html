@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nexas Admin — Admins</title>
+<title>Novi Admin, Admins</title>
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -25,7 +25,7 @@
   var staff = [];
 
   /* The nav hides this page for everyone else, but a hidden link is
-     tidiness rather than a control — anyone can type the URL. The API
+     tidiness rather than a control, anyone can type the URL. The API
      refuses too, which is what actually protects it. */
   if (!A.can(me, 'manager')) {
     page.innerHTML = A.card('',
@@ -156,7 +156,7 @@
           '<div class="field"><input id="aName" placeholder="Their name"></div>' +
           '<div class="field-error" id="aNameError" hidden></div></div>' +
         '<div class="field-block"><label for="aEmail">Work email</label>' +
-          '<div class="field"><input id="aEmail" type="email" placeholder="them@nexas.trade"></div>' +
+          '<div class="field"><input id="aEmail" type="email" placeholder="them@novibinary.com"></div>' +
           '<div class="field-error" id="aEmailError" hidden></div></div>' +
         '<div class="field-block"><label for="aRole">Role</label>' +
           '<div class="field"><select id="aRole">' + roleOptions('session_handler') + '</select></div>' +

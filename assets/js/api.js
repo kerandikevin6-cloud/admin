@@ -85,6 +85,8 @@
       id: u.id, name: u.name, email: u.email, phone: u.phone,
       country: u.country, countryName: u.country, currency: 'KES',
       kyc: u.kyc, status: u.status, role: u.role,
+      /* Which rail this account is on. Absent means Standard: real money. */
+      tier: u.tier || 'standard',
       balanceMinor: u.balanceMinor, demoMinor: u.demoMinor,
       trades: u.trades, referrals: 0,
       joined: ms(u.joined), lastSeen: ms(u.lastSeen) || ms(u.joined)
@@ -93,7 +95,7 @@
   function normalisePayment(p) {
     return {
       id: p.id, reference: p.reference,
-      userId: p.userId, userName: p.userName || '—', userEmail: p.userEmail || '',
+      userId: p.userId, userName: p.userName || '', userEmail: p.userEmail || '',
       provider: p.provider, providerLabel: p.providerLabel, method: p.method,
       amountMinor: p.amountMinor, currency: p.currency,
       creditedMinor: p.creditedMinor, status: p.status,
@@ -104,7 +106,7 @@
   function normaliseWithdrawal(w) {
     return {
       id: w.id, userId: w.userId,
-      userName: w.userName || '—', userEmail: w.userEmail || '',
+      userName: w.userName || '', userEmail: w.userEmail || '',
       userKyc: w.userKyc, userStatus: w.userStatus,
       userPhone: w.userPhone, userTrades: w.userTrades,
       amountMinor: w.amountMinor, currency: w.currency,
@@ -226,6 +228,29 @@
     },
 
     /* ---------- system ---------- */
+    /* ---------- the VIP demo wallet ---------- */
+    wallet: async function (userId) {
+      var out = await call('/admin/users/' + encodeURIComponent(userId) + '/wallet');
+      return { wallet: out.wallet || null, statement: out.statement || [] };
+    },
+
+    saveWallet: async function (userId, body) {
+      var out = await call('/admin/users/' + encodeURIComponent(userId) + '/wallet',
+        { method: 'PUT', body: body });
+      return out.wallet;
+    },
+
+    resetWallet: async function (userId, balanceMinor) {
+      var out = await call('/admin/users/' + encodeURIComponent(userId) + '/wallet/reset',
+        { method: 'POST', body: { balanceMinor: balanceMinor } });
+      return out.wallet;
+    },
+
+    clearWallet: async function (userId) {
+      return call('/admin/users/' + encodeURIComponent(userId) + '/wallet',
+        { method: 'DELETE' });
+    },
+
     health: async function () {
       return call('/admin/health');
     },

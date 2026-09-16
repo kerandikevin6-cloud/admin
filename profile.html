@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nexas Admin — Profile</title>
+<title>Novi Admin, Profile</title>
 <link rel="icon" href="assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -58,7 +58,7 @@
           '<div class="kv"><span>Signed in</span><b>' +
             A.dateTime(me.signedInAt) + '</b></div>' +
           '<div class="kv"><span>Admin since</span><b>' +
-            (record.created ? A.date(record.created) : '—') + '</b></div>' +
+            (record.created ? A.date(record.created) : '') + '</b></div>' +
           '<p class="muted" style="font-size:12.5px;line-height:1.7;margin:14px 0 0">' +
             A.esc((A.roles[record.role] || {}).note || '') + '</p>') +
 
