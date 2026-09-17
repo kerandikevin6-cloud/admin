@@ -159,6 +159,18 @@
           '<div class="kv"><span>Credited</span><b class="num">' +
             (p.creditedMinor == null ? 'Not credited' : A.usd(p.creditedMinor)) + '</b></div>' +
           '<div class="kv"><span>Started</span><b>' + A.dateTime(p.created) + '</b></div>' +
+          /* The hash is the whole of the evidence on a chain transfer,
+             and it is what gets pasted into an explorer. Shown in full
+             and selectable rather than truncated for tidiness. */
+          (p.txHash
+            ? '<div class="kv"><span>Network</span><b>' + A.esc(p.network || 'TRC-20') + '</b></div>' +
+              '<div><div class="sect-label">Transaction hash</div>' +
+                '<div class="ticket-body num" style="word-break:break-all">' +
+                  A.esc(p.txHash) + '</div>' +
+                '<a class="btn btn-ghost btn-sm" style="margin-top:8px" target="_blank" ' +
+                  'rel="noopener noreferrer" href="https://tronscan.org/#/transaction/' +
+                  A.esc(p.txHash) + '">Open in Tronscan</a></div>'
+            : '') +
           (p.failureReason
             ? '<div class="kv"><span>Reason</span><b>' + A.esc(p.failureReason) + '</b></div>' : '') +
         '</div>' +
@@ -167,15 +179,41 @@
           '<div class="kv"><span>Email</span><b>' + A.esc(p.userEmail) + '</b></div>' +
         '</div>' +
       '</div>' +
-      (p.status === 'pending'
-        ? '<div class="drawer-foot">' +
-            '<button class="btn btn-primary btn-sm" data-act="recheck">' +
-              'Ask the provider again</button>' +
-          '</div>'
-        : ''));
+      (p.status !== 'pending' ? '' :
+        p.provider === 'usdt'
+          /* There is no provider to ask about a chain transfer. Somebody
+             looks at the hash and decides, which is why this button says
+             what it does rather than "approve". */
+          ? '<div class="drawer-foot">' +
+              '<button class="btn btn-primary btn-sm" data-act="credit">' +
+                A.icon('check', 15) + 'Confirmed on chain, credit it</button>' +
+            '</div>'
+          : '<div class="drawer-foot">' +
+              '<button class="btn btn-primary btn-sm" data-act="recheck">' +
+                'Ask the provider again</button>' +
+            '</div>'));
 
     var foot = document.querySelector('.drawer-foot');
     if (foot) foot.addEventListener('click', async function (e) {
+      var credit = e.target.closest('[data-act="credit"]');
+      if (credit) {
+        if (!confirm('Credit ' + A.usd(p.amountMinor) + ' to ' + (p.userName || 'this account') +
+            '? Only do this once the transfer is confirmed on chain.')) return;
+        credit.disabled = true;
+        credit.innerHTML = A.loader('sm') + 'Crediting';
+        try {
+          await A.data.creditPayment(p.id);
+          A.closeAll();
+          await load();
+          A.toast('Credited ' + A.usd(p.amountMinor));
+        } catch (err) {
+          credit.disabled = false;
+          credit.textContent = 'Confirmed on chain, credit it';
+          A.toast(err.message);
+        }
+        return;
+      }
+
       var b = e.target.closest('[data-act="recheck"]');
       if (!b) return;
       b.disabled = true;

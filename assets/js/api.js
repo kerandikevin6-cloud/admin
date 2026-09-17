@@ -101,6 +101,9 @@
       amountMinor: p.amountMinor, currency: p.currency,
       creditedMinor: p.creditedMinor, status: p.status,
       failureReason: p.failureReason,
+      /* Only a chain transfer carries these, and they are the only
+         evidence there is for one. */
+      txHash: p.txHash || null, network: p.network || null,
       created: ms(p.created), settled: ms(p.settled)
     };
   }
@@ -215,6 +218,15 @@
     recheckPayment: async function (id) {
       var out = await call('/admin/payments/' + encodeURIComponent(id) + '/recheck',
         { method: 'POST' });
+      return normalisePayment(out.payment);
+    },
+
+    /* A chain transfer, credited by hand after somebody has looked it
+       up. The only route in the product that moves money into an account
+       on a person's say-so. */
+    creditPayment: async function (id, note) {
+      var out = await call('/admin/payments/' + encodeURIComponent(id) + '/credit',
+        { method: 'POST', body: { note: note } });
       return normalisePayment(out.payment);
     },
 
