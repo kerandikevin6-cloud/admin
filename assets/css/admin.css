@@ -227,6 +227,79 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .legend i{width:10px;height:10px;display:block}
 .legend i.a{background:var(--purple)} .legend i.b{background:var(--purple-pale)}
 
+/* ---------------- modal ----------------
+   Centred, narrow, and it never scrolls the page behind it. The body
+   scrolls inside itself so a long error is readable without the footer
+   and its copy button leaving the screen — which is the whole reason
+   somebody opened it. */
+.modal{
+  position:fixed;inset:0;z-index:60;display:flex;align-items:center;
+  justify-content:center;padding:20px;
+  opacity:0;pointer-events:none;transition:opacity .16s ease;
+}
+.modal.on{opacity:1;pointer-events:auto}
+.modal-box{
+  width:min(100%,640px);max-height:86vh;display:flex;flex-direction:column;
+  background:var(--surface);border:1px solid var(--line);
+  box-shadow:0 24px 60px rgba(18,22,28,.22);
+  transform:translateY(8px);transition:transform .18s cubic-bezier(.32,.72,0,1);
+}
+.modal.on .modal-box{transform:none}
+.modal-head{
+  display:flex;align-items:flex-start;gap:12px;padding:16px 16px 14px;
+  border-bottom:1px solid var(--line);
+}
+.modal-head h2{margin:0;font-size:15px;font-weight:600}
+.modal-head p{margin:3px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.modal-head .spacer{flex:1}
+/* A failure says so before it is read: a red edge along the top, rather
+   than a red panel, which would make every line in it look like an
+   error message. */
+.modal.bad .modal-box{border-top:2px solid var(--neg)}
+.modal.ok .modal-box{border-top:2px solid var(--pos)}
+.modal-body{padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px}
+.modal-foot{
+  padding:12px 16px;border-top:1px solid var(--line);
+  display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+}
+.modal-foot .spacer{flex:1}
+
+/* The block that gets copied. Monospace, selectable, and scrolling
+   sideways rather than wrapping a URL into something that cannot be
+   pasted back. */
+.diag{
+  margin:0;padding:12px;background:var(--surface-2);border:1px solid var(--line);
+  font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--text-2);
+  white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;
+  user-select:text;
+}
+
+/* ---------------- the test bench ---------------- */
+.test-row{
+  display:flex;align-items:center;gap:14px;padding:14px 16px;
+}
+.test-row + .test-row{border-top:1px solid var(--line-soft)}
+.test-main{min-width:0;flex:1}
+.test-main b{display:block;font-size:13.5px;font-weight:500}
+.test-main span{display:block;font-size:12px;color:var(--muted);line-height:1.55;margin-top:2px}
+/* The result line replaces the description once a test has run, so a row
+   says what happened rather than what it would do. */
+.test-main .result{margin-top:5px;font-family:var(--mono);font-size:11.5px}
+.test-main .result.ok{color:var(--pos)}
+.test-main .result.bad{color:var(--neg)}
+.test-main .result.wait{color:var(--warn)}
+.test-act{display:flex;align-items:center;gap:8px;flex:none}
+.test-form{
+  display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;
+  padding:14px 16px;border-top:1px solid var(--line-soft);background:var(--surface-2);
+}
+.test-form .field-block{flex:1;min-width:190px}
+@media (max-width:640px){
+  .test-row{flex-wrap:wrap}
+  .test-act{width:100%}
+  .test-act .btn{flex:1}
+}
+
 /* ---------------- drawer ---------------- */
 .scrim{
   position:fixed;inset:0;background:rgba(18,22,28,.4);z-index:40;

@@ -28,7 +28,11 @@
     globe: 'M3 12h18|M12 3a15 15 0 010 18 15 15 0 010-18',
     out: 'M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4|M16 17l5-5-5-5M21 12H9',
     logs: 'M5 4h14v16H5z|M8.5 9h7M8.5 13h7M8.5 17h4',
-    refresh: 'M20 12a8 8 0 11-2.5-5.8|M20 4v4h-4'
+    refresh: 'M20 12a8 8 0 11-2.5-5.8|M20 4v4h-4',
+    /* A flask: the one place in the console where things are tried
+       rather than done. */
+    flask: 'M10 3h4|M10.5 3v6.2L5.2 18A2 2 0 007 21h10a2 2 0 001.8-2.9L13.5 9.2V3|M7.8 14h8.4',
+    copy: 'M9 9h11v11H9z|M5.5 15H5a1 1 0 01-1-1V5a1 1 0 011-1h9a1 1 0 011 1v.5'
   };
 
   function icon(name, size) {
@@ -311,6 +315,7 @@
     decideVerification: API.decideVerification,
     tickets: API.tickets,
     replyTicket: API.replyTicket,
+    testSms: API.testSms,
     wallet: API.wallet,
     saveWallet: API.saveWallet,
     resetWallet: API.resetWallet,
@@ -343,6 +348,7 @@
     decideVerification: none,
     tickets: function () { return Promise.resolve([]); },
     replyTicket: none,
+    testSms: none,
     wallet: function () { return Promise.resolve({ wallet: null, statement: [] }); },
     saveWallet: none,
     resetWallet: none,
@@ -365,6 +371,10 @@
     { id: 'sessions', label: 'Sessions', href: 'sessions.html', icon: 'live' },
     { section: 'System' },
     { id: 'logs', label: 'Logs', href: 'logs.html', icon: 'logs' },
+    /* Behind the same roles as anything else that spends money or sends
+       something outward: the bench can put a real text on a real phone. */
+    { id: 'tests', label: 'Test bench', href: 'tests.html', icon: 'flask',
+      roles: ['super_admin', 'manager'] },
     { section: 'Team' },
     /* Only a super admin can make another admin. The nav hides it for
        everyone else, and the page checks again on open, a hidden link
@@ -435,9 +445,15 @@
       document.getElementById('scrim').classList.add('on');
     });
     document.getElementById('signOut').addEventListener('click', signOut);
-    document.getElementById('scrim').addEventListener('click', closeAll);
+    document.getElementById('scrim').addEventListener('click', function () {
+      closeModal(); closeAll();
+    });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeAll();
+      if (e.key !== 'Escape') return;
+      /* Innermost first: Escape with a modal open over a drawer should
+         close the modal and leave the drawer where it was. */
+      if (document.getElementById('modal')) closeModal();
+      else closeAll();
     });
 
     return true;
@@ -456,6 +472,87 @@
     document.getElementById('scrim').classList.add('on');
     var close = d.querySelector('[data-close]');
     if (close) close.addEventListener('click', closeAll);
+  }
+
+  /* ---------- modal ----------
+     The drawer is for a record you are working on; this is for something
+     that just happened and has to be read before anything else. One at a
+     time, closed by the scrim, Escape or its own button.
+
+     It exists for the test bench, where a failure has more to say than a
+     toast can hold: what was asked, what came back, and a button that
+     puts the lot on the clipboard so it can be pasted to whoever is
+     going to fix it. */
+  function modal(title, bodyMarkup, opts) {
+    opts = opts || {};
+    var old = document.getElementById('modal');
+    if (old) old.remove();
+
+    var box = document.createElement('div');
+    box.className = 'modal' + (opts.tone ? ' ' + opts.tone : '');
+    box.id = 'modal';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.innerHTML =
+      '<div class="modal-box">' +
+        '<div class="modal-head">' +
+          '<div><h2>' + esc(title) + '</h2>' +
+          (opts.note ? '<p>' + esc(opts.note) + '</p>' : '') + '</div>' +
+          '<span class="spacer"></span>' +
+          '<button class="iconbtn" data-close aria-label="Close">' + icon('close', 18) + '</button>' +
+        '</div>' +
+        '<div class="modal-body">' + bodyMarkup + '</div>' +
+        (opts.foot ? '<div class="modal-foot">' + opts.foot + '</div>' : '') +
+      '</div>';
+
+    document.body.appendChild(box);
+    document.getElementById('scrim').classList.add('on');
+    requestAnimationFrame(function () { box.classList.add('on'); });
+
+    box.addEventListener('click', function (e) {
+      if (e.target === box || (e.target.closest && e.target.closest('[data-close]'))) closeModal();
+    });
+    return box;
+  }
+
+  function closeModal() {
+    var box = document.getElementById('modal');
+    if (!box) return;
+    box.classList.remove('on');
+    setTimeout(function () { if (box.parentNode) box.remove(); }, 180);
+    var drawer = document.getElementById('drawer');
+    if (!drawer || !drawer.classList.contains('on')) {
+      document.getElementById('scrim').classList.remove('on');
+    }
+  }
+
+  /* Clipboard, with the answer somebody needs when it does not work.
+     navigator.clipboard is unavailable on a plain http origin and inside
+     some embedded browsers, which is exactly where a console gets opened
+     during a demo, so the textarea fallback is not academic. */
+  function copyText(text) {
+    var done = function () { toast('Copied'); };
+    var failed = function () { toast('Could not copy — select the text and copy it by hand'); };
+
+    function legacy() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand && document.execCommand('copy');
+        ta.remove();
+        if (ok) done(); else failed();
+      } catch (e) { failed(); }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, legacy);
+    } else {
+      legacy();
+    }
   }
 
   var toastTimer;
@@ -539,6 +636,7 @@
     data: Data, loadingBlock: loadingBlock, errorBlock: errorBlock,
     emptyBlock: emptyBlock,
     openDrawer: openDrawer, closeAll: closeAll, toast: toast,
+    modal: modal, closeModal: closeModal, copyText: copyText,
     mountChrome: mountChrome,
     session: session, signIn: signIn, signOut: signOut, loader: loader
   };

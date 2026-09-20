@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Novi Admin, Test bench</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="tests" data-title="Test bench">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+/* ============================================================
+   The test bench
+
+   Every check here answers one question, and answers it without a
+   customer being involved. That is the point: "is the SMS gateway
+   working" and "is this customer's handset set up" fail in different
+   places and need different answers, and until now the only way to ask
+   the first was to pick a real account and send a real person a real
+   message.
+
+   A failure opens a modal rather than a toast, because a toast holds
+   "that did not work" and nothing else. The modal holds what was asked,
+   what came back, and a Copy button that puts the lot on the clipboard
+   in a form that can be pasted straight to whoever is going to fix it,
+   who is usually not the person standing here.
+   ============================================================ */
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  var page = document.getElementById('page');
+  var operator = A.session();
+
+  /* Only the roles that may spend credit or reach outside. Checked here
+     as well as in the rail: a hidden link is tidiness, this is the
+     control. */
+  if (!A.can(operator, 'manager')) {
+    page.innerHTML = A.card('Not your screen',
+      '<div class="empty">The test bench is for managers and super admins.</div>');
+    return;
+  }
+
+  /* What each test last did, kept per id so a re-run replaces its own
+     line and leaves every other row alone. */
+  var results = {};
+  var health = null;
+
+  /* ---------- the diagnostic block ----------
+     Written for somebody who was not here: what was tried, against which
+     deployment, what came back, and when. No secret reaches it — the API
+     reports where its credentials came from, never what they are, and
+     this only reprints what the API said. */
+  /* wouldHaveSent -> "Would have sent:", padded into the same column as
+     everything else. A key long enough to overflow the column still gets
+     one space after the colon, or the value runs into the label and the
+     block stops being readable at the one moment it matters. */
+  var ACRONYM = { api: 'API', url: 'URL', http: 'HTTP', id: 'ID', sms: 'SMS' };
+
+  function pad(k) {
+    var label = k.replace(/([A-Z])/g, ' $1').toLowerCase().trim()
+      .split(' ')
+      .map(function (w, i) {
+        if (ACRONYM[w]) return ACRONYM[w];
+        return i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+      })
+      .join(' ') + ':';
+    while (label.length < 11) label += ' ';
+    return label + ' ';
+  }
+
+  function diagnostic(test, detail, extra) {
+    var lines = [
+      'Novi console, test bench',
+      pad('test') + test,
+      pad('when') + new Date().toISOString(),
+      pad('console') + location.origin + location.pathname,
+      pad('api') + ((window.NexasAdminConfig || {}).apiBase || 'not configured'),
+      pad('operator') + (operator.role || 'unknown'),
+      pad('result') + detail
+    ];
+    Object.keys(extra || {}).forEach(function (k) {
+      var v = extra[k];
+      if (v === undefined || v === null || v === '') return;
+      lines.push(pad(k) + (typeof v === 'string' ? v : JSON.stringify(v, null, 2)));
+    });
+    return lines.join('\n');
+  }
+
+  /* Everything an Error picked up on its way through the API client. A
+     network failure carries no status and no body, and that absence is
+     itself the finding, so each key is added only when it exists. */
+  function fromError(err) {
+    var out = {};
+    if (err.method || err.path) out.request = (err.method || 'GET') + ' ' + (err.path || '');
+    if (err.url) out.url = err.url;
+    if (err.status) out.http = String(err.status) + (err.code ? ' ' + err.code : '');
+    if (err.kind === 'network') out.reached = 'no, the request never got an answer';
+    if (err.cause) out.cause = err.cause;
+    if (err.ms != null) out.took = err.ms + ' ms';
+    if (err.body && Object.keys(err.body).length) out.body = err.body;
+    return out;
+  }
+
+  function resultModal(test, message, extra, tone) {
+    var text = diagnostic(test, message, extra);
+    A.modal(tone === 'bad' ? test + ' failed' : test,
+      '<pre class="diag">' + A.esc(text) + '</pre>', {
+        tone: tone,
+        note: message,
+        foot: '<button class="btn btn-ghost btn-sm" id="copyDiag">' +
+                A.icon('copy', 15) + (tone === 'bad' ? 'Copy for support' : 'Copy') +
+              '</button>' +
+              '<span class="spacer"></span>' +
+              '<button class="btn btn-primary btn-sm" data-close>Close</button>'
+      });
+    var copy = document.getElementById('copyDiag');
+    if (copy) copy.addEventListener('click', function () { A.copyText(text); });
+  }
+  function showFailure(test, message, extra) { resultModal(test, message, extra, 'bad'); }
+  function showSuccess(test, message, extra) { resultModal(test, message, extra, 'ok'); }
+
+  /* ---------- the checks ----------
+     Each returns { ok, soft, line, detail, extra }. The row paints from
+     line; the modal, when there is a reason to open one, from the rest. */
+  var TESTS = {
+    api: {
+      label: 'The API answers, and knows who I am',
+      note: 'Calls /admin/health with this session. Proves the address, the ' +
+            'CORS origin and the operator token in one go.',
+      run: async function () {
+        health = await A.data.health();
+        var app = health.app || {};
+        return {
+          ok: true,
+          line: (app.env || 'unknown') + '  ·  up ' +
+                Math.round((app.uptimeSeconds || 0) / 60) + 'm',
+          detail: 'Answered, and the session was accepted',
+          extra: {
+            environment: app.env,
+            apiUrl: app.apiUrl,
+            uptime: (app.uptimeSeconds || 0) + 's'
+          }
+        };
+      }
+    },
+
+    database: {
+      label: 'The database',
+      note: 'Reads a real table with the service-role key. Anything else ' +
+            'failing while this passes is not a database problem.',
+      run: function () { return fromService('supabase', 'The database'); }
+    },
+
+    sms: {
+      label: 'The SMS gateway',
+      note: 'Asks whichever provider is configured whether it accepts these ' +
+            'credentials. Sends nothing.',
+      run: function () { return fromService('sms', 'The SMS gateway'); }
+    },
+
+    payhero: {
+      label: 'M-Pesa (PayHero)',
+      note: 'Checks the credentials real deposits are raised with.',
+      run: function () { return fromService('payhero', 'PayHero'); }
+    },
+
+    paystack: {
+      label: 'Cards (Paystack)',
+      note: 'Checks the secret key card deposits are taken with.',
+      run: function () { return fromService('paystack', 'Paystack'); }
+    },
+
+    payments: {
+      label: 'Deposits in flight',
+      note: 'Looks for deposits pending over an hour, which is what a missed ' +
+            'callback looks like from here.',
+      run: function () { return fromService('payments', 'Deposits in flight'); }
+    }
+  };
+
+  /* The five service checks read one health call rather than making five
+     of their own: the API already probes everything in parallel, and
+     five round trips to be told the same thing would make this page
+     slower than what it is testing. */
+  async function fromService(key, name) {
+    if (!health) health = await A.data.health();
+    var s = (health.services || {})[key] || {};
+    var state = s.status || 'down';
+    var detail = s.detail || 'No answer';
+
+    /* 'off' is not a failure. A deployment with no SMS keys was not
+       meant to text anybody, and a red row sends somebody looking for a
+       fault that does not exist. */
+    return {
+      ok: state === 'live' || state === 'off',
+      soft: state === 'off' || state === 'warn',
+      line: detail + (s.ms != null ? '  ·  ' + s.ms + ' ms' : ''),
+      detail: name + ': ' + state + ', ' + detail,
+      extra: {
+        service: key,
+        state: state,
+        took: s.ms != null ? s.ms + ' ms' : null
+      }
+    };
+  }
+
+  /* ---------- rows ---------- */
+  function row(id, t) {
+    var r = results[id];
+    /* Amber wins over red. "Two deposits pending over an hour" is
+       something to look at, not something that is broken, and painting
+       it the same colour as a rejected key makes the page cry wolf. */
+    var tone = r ? (r.soft ? 'wait' : (r.ok ? 'ok' : 'bad')) : '';
+    var line = r
+      ? '<span class="result ' + tone + '">' +
+          A.esc(r.line || (r.ok ? 'Passed' : 'Failed')) + '</span>'
+      : '';
+
+    return '<div class="test-row">' +
+      '<div class="test-main">' +
+        '<b>' + A.esc(t.label) + '</b>' +
+        '<span>' + A.esc(t.note) + '</span>' +
+        line +
+      '</div>' +
+      '<div class="test-act">' +
+        (r && !r.ok ? '<button class="btn btn-ghost btn-sm" data-why="' + id + '">Why</button>' : '') +
+        '<button class="btn btn-ghost btn-sm" data-run="' + id + '">Run</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  /* ---------- the SMS bench ----------
+     Its own card because it takes input and, unlike every check above,
+     it does something rather than asking about something: a real message
+     on a real phone, costing real credit. */
+  function smsCard() {
+    var app = (health || {}).app || {};
+    var gateway = app.smsGateway || 'unknown, run the checks above first';
+
+    return A.card('Send a test message',
+      '<div class="test-row">' +
+        '<div class="test-main">' +
+          '<b>What this deployment will send through</b>' +
+          '<span class="result">' + A.esc(gateway) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="test-form">' +
+        '<div class="field-block">' +
+          '<label for="smsPhone">Number</label>' +
+          '<div class="field"><input id="smsPhone" inputmode="tel" ' +
+            'placeholder="0712345678" autocomplete="off"></div>' +
+        '</div>' +
+        '<div class="field-block" style="flex:0 0 210px">' +
+          '<label for="smsKind">What to send</label>' +
+          '<div class="field"><select id="smsKind">' +
+            '<option value="plain">A plain test message</option>' +
+            '<option value="mpesa">A sample M-PESA confirmation</option>' +
+          '</select></div>' +
+        '</div>' +
+        '<button class="btn btn-primary" id="sendSms">Send</button>' +
+      '</div>',
+      '', true);
+  }
+
+  function render() {
+    var rows = Object.keys(TESTS).map(function (id) { return row(id, TESTS[id]); }).join('');
+
+    page.innerHTML =
+      A.card('Checks', rows,
+        '<button class="btn btn-primary btn-sm" id="runAll">Run all</button>', true) +
+      smsCard() +
+      A.card('What this page is for',
+        '<div class="muted" style="font-size:12.5px;line-height:1.7">' +
+          'Everything here runs against this deployment and nobody else. When ' +
+          'a check fails, press <b>Why</b>: it opens what was asked and what ' +
+          'came back, with a button that copies the lot so it can be pasted to ' +
+          'whoever is fixing it. Nothing on this page prints a key or a ' +
+          'password, because the API reports where its credentials came from ' +
+          'and never what they are.' +
+        '</div>');
+
+    wire();
+  }
+
+  /* ---------- running ---------- */
+  async function run(id, button) {
+    var t = TESTS[id];
+    if (!t) return;
+    var label = button ? button.innerHTML : '';
+    if (button) { button.disabled = true; button.innerHTML = A.loader('sm'); }
+
+    try {
+      results[id] = await t.run();
+    } catch (err) {
+      results[id] = {
+        ok: false,
+        line: err.message,
+        detail: err.message,
+        extra: fromError(err)
+      };
+    }
+    results[id].test = t.label;
+
+    if (button) { button.disabled = false; button.innerHTML = label; }
+    render();
+    return results[id];
+  }
+
+  async function runAll(button) {
+    var label = button ? button.innerHTML : '';
+    if (button) { button.disabled = true; button.innerHTML = A.loader('sm') + 'Running'; }
+    health = null;                          /* one fresh probe for the lot */
+    var ids = Object.keys(TESTS);
+    for (var i = 0; i < ids.length; i++) await run(ids[i], null);
+    if (button) { button.disabled = false; button.innerHTML = label; }
+    render();
+  }
+
+  async function sendSms(button) {
+    if (!button) return;
+    var phone = (document.getElementById('smsPhone').value || '').trim();
+    var kind = document.getElementById('smsKind').value;
+    var test = 'Send a test message';
+
+    if (!phone) {
+      showFailure(test, 'No number was entered', {
+        note: 'Type the number the message should go to, in any shape: ' +
+              '0712345678, 254712345678 or +254 712 345 678.'
+      });
+      return;
+    }
+
+    button.disabled = true;
+    var label = button.innerHTML;
+    button.innerHTML = A.loader('sm') + 'Sending';
+
+    try {
+      var out = await A.data.testSms(phone, kind);
+
+      /* The call succeeded either way. Whether the gateway accepted the
+         message is the result, and a refusal earns the same modal a
+         thrown error gets: it is the sentence somebody needs. */
+      if (out.ok) {
+        A.toast('Sent to ' + out.to);
+        showSuccess(test, 'The gateway accepted it', {
+          provider: out.provider, sender: out.sender, to: out.to,
+          messageId: out.messageId, gateway: out.gateway, sent: out.message
+        });
+      } else {
+        showFailure(test, out.detail || 'The gateway refused it', {
+          provider: out.provider, sender: out.sender, to: out.to,
+          state: out.status, gateway: out.gateway, wouldHaveSent: out.message
+        });
+      }
+    } catch (err) {
+      showFailure(test, err.message, fromError(err));
+    }
+
+    button.disabled = false;
+    button.innerHTML = label;
+  }
+
+  function wire() {
+    var all = document.getElementById('runAll');
+    if (all) all.addEventListener('click', function () { runAll(all); });
+
+    var send = document.getElementById('sendSms');
+    if (send) send.addEventListener('click', function () { sendSms(send); });
+
+    var phone = document.getElementById('smsPhone');
+    if (phone) phone.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendSms(document.getElementById('sendSms'));
+    });
+
+    page.querySelectorAll('[data-run]').forEach(function (b) {
+      b.addEventListener('click', function () { run(b.getAttribute('data-run'), b); });
+    });
+
+    page.querySelectorAll('[data-why]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var r = results[b.getAttribute('data-why')];
+        if (r) showFailure(r.test, r.detail || r.line, r.extra);
+      });
+    });
+  }
+
+  render();
+  /* Opened to be looked at, so it runs itself once rather than waiting
+     to be told. */
+  runAll(null);
+})();
+</script>
+</body>
+</html>

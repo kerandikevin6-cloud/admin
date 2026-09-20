@@ -24,14 +24,27 @@
     } catch (e) {}
   }
 
+  /* Everything a failure knows, carried on the Error rather than
+     flattened into its message. Screens still show err.message and are
+     unchanged; the test page reads the rest, because "that did not
+     work" is not something anybody can act on or paste to somebody who
+     could. */
+  function fail(message, extra) {
+    var err = new Error(message);
+    Object.keys(extra || {}).forEach(function (k) { err[k] = extra[k]; });
+    return err;
+  }
+
   /* One place turns a response into either data or a thrown Error with a
      message worth showing someone. */
   async function call(path, options) {
     options = options || {};
+    var method = options.method || 'GET';
+    var started = Date.now();
     var res;
     try {
       res = await fetch(BASE + path, {
-        method: options.method || 'GET',
+        method: method,
         headers: Object.assign(
           { 'Content-Type': 'application/json' },
           token() ? { Authorization: 'Bearer ' + token() } : {},
@@ -40,10 +53,22 @@
         body: options.body ? JSON.stringify(options.body) : undefined
       });
     } catch (e) {
-      throw new Error('Could not reach the API. Check the connection.');
+      /* No status and no body: the request never arrived. Which is
+         itself the finding — a wrong apiBase, a sleeping service and a
+         CORS origin the API does not list all land here, and the
+         browser will not say which. */
+      throw fail('Could not reach the API. Check the connection.', {
+        kind: 'network', path: path, method: method, url: BASE + path,
+        ms: Date.now() - started, cause: e && e.message
+      });
     }
 
     var body = await res.json().catch(function () { return {}; });
+    var about = {
+      kind: 'http', path: path, method: method, url: BASE + path,
+      status: res.status, body: body, ms: Date.now() - started,
+      code: (body.error && body.error.code) || null
+    };
 
     if (res.status === 401) {
       /* The session died underneath us. Clear it and send them back to
@@ -51,11 +76,16 @@
       setToken(null);
       try { sessionStorage.removeItem('nexas.admin.session'); } catch (e) {}
       if (!/login\.html$/.test(location.pathname)) location.replace('login.html');
-      throw new Error('Session expired');
+      throw fail('Session expired', about);
     }
 
-    if (!res.ok || body.ok === false) {
-      throw new Error((body.error && body.error.message) || 'That did not work');
+    /* ok:false is normally a failure, but not always. An endpoint that
+       reports on something outside itself — "the gateway refused this
+       message" — did its job perfectly and has a sentence worth reading
+       in the body. Callers that ask for it raw get the body; everything
+       else keeps throwing, which is what every other screen expects. */
+    if (!res.ok || (body.ok === false && !options.raw)) {
+      throw fail((body.error && body.error.message) || 'That did not work', about);
     }
     return body;
   }
@@ -302,6 +332,14 @@
     clearWallet: async function (userId) {
       return call('/admin/users/' + encodeURIComponent(userId) + '/wallet',
         { method: 'DELETE' });
+    },
+
+    /* The bench test: one message, one number, no wallet and no account
+       behind it. Returns rather than throws when the gateway refuses —
+       the call worked, and the refusal is the result. */
+    testSms: async function (phone, kind) {
+      return call('/admin/system/test-sms',
+        { method: 'POST', raw: true, body: { phone: phone, kind: kind || 'plain' } });
     },
 
     health: async function () {
