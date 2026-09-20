@@ -194,21 +194,24 @@
         field('wFul', 'Fuliza limit (KSh)', w ? Math.round(w.fulizaLimitMinor / 100) : '',
               'How far past zero they can spend. Repaid from the next money in.',
               'inputmode="numeric" placeholder="5000"') +
-        /* What the handset puts on its own lock screen, masked. It is set
-           here rather than taken from whatever the customer types into the
-           deposit form, because the phone shows it before any deposit
-           exists, and because on this rail nothing is ever sent to a
-           number. Left blank it follows the account's own details. */
+        /* What the handset puts on its own lock screen, masked — and,
+           since the rail started texting its confirmations, the number
+           those messages go to. It is set here rather than taken from
+           whatever the customer types into the deposit form, because the
+           phone shows it before any deposit exists. Left blank it follows
+           the account's own details; wrong, and the confirmations go to a
+           stranger, so it is worth the Test SMS button below. */
         field('wName', 'Name on the phone', w ? (w.holderName || '') : u.name,
               'Shown at the top of the app. Defaults to the account name.',
               'placeholder="' + A.esc(u.name) + '"') +
         field('wPhone', 'Number on the phone', w ? (w.phone || '') : (u.phone || ''),
-              'Shown on the PIN screen, partly masked. Defaults to the account number.',
+              'Shown on the PIN screen, and where M-PESA confirmation messages are sent.',
               'inputmode="numeric" placeholder="254712345678"') +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">' +
           '<button class="btn btn-primary btn-sm" id="wSave">' +
             (w ? 'Save handset' : 'Create handset') + '</button>' +
           (w ? '<button class="btn btn-ghost btn-sm" id="wReset">Reset</button>' +
+               '<button class="btn btn-ghost btn-sm" id="wTestSms">Test SMS</button>' +
                '<button class="btn btn-danger btn-sm" id="wClear">Remove</button>' : '') +
         '</div>' +
       '</div>' +
@@ -284,6 +287,25 @@
       A.closeAll();
       await load();
       A.toast('Handset reset. The phone stays linked.');
+    });
+
+    /* The number saved on the wallet, not the one in the box above: the
+       point is to prove what a real confirmation will do, and a real
+       confirmation reads the wallet. Save first, then test. */
+    var test = document.getElementById('wTestSms');
+    if (test) test.addEventListener('click', async function () {
+      test.disabled = true;
+      test.innerHTML = A.loader('sm') + 'Sending';
+      try {
+        var out = await A.data.testWalletSms(u.id);
+        A.toast(out.ok
+          ? 'Sent to +' + out.to + ' from ' + (out.sender || 'the gateway')
+          : 'Not sent: ' + (out.detail || 'the gateway refused it'));
+      } catch (e) {
+        A.toast(e.message);
+      }
+      test.disabled = false;
+      test.textContent = 'Test SMS';
     });
 
     var clear = document.getElementById('wClear');

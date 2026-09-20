@@ -291,6 +291,14 @@
       return out.wallet;
     },
 
+    /* Sends one message to the wallet's own number, and reports what the
+       gateway said. Resolves even when the gateway refuses — the caller
+       shows the reason rather than a generic failure. */
+    testWalletSms: async function (userId) {
+      return call('/admin/users/' + encodeURIComponent(userId) + '/wallet/test-sms',
+        { method: 'POST', body: {} });
+    },
+
     clearWallet: async function (userId) {
       return call('/admin/users/' + encodeURIComponent(userId) + '/wallet',
         { method: 'DELETE' });

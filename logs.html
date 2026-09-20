@@ -29,6 +29,7 @@
     supabase: 'Database',
     paystack: 'Paystack',
     payhero: 'M-Pesa (PayHero)',
+    sms: 'SMS (Celcom)',
     payments: 'Deposits in flight'
   };
   var STATE = {
@@ -84,7 +85,7 @@
     if (!health) return '';
     var s = health.services || {};
     return '<div class="status-row">' +
-      ['supabase', 'paystack', 'payhero', 'payments']
+      ['supabase', 'paystack', 'payhero', 'sms', 'payments']
         .map(function (k) { return statusCell(k, s[k]); }).join('') +
     '</div>';
   }
