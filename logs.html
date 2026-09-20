@@ -29,7 +29,9 @@
     supabase: 'Database',
     paystack: 'Paystack',
     payhero: 'M-Pesa (PayHero)',
-    sms: 'SMS (Celcom)',
+    /* Named without a provider: which one is sending is a deployment
+       detail, and the tile's own line says it. */
+    sms: 'SMS gateway',
     payments: 'Deposits in flight'
   };
   var STATE = {

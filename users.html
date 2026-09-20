@@ -299,7 +299,8 @@
       try {
         var out = await A.data.testWalletSms(u.id);
         A.toast(out.ok
-          ? 'Sent to +' + out.to + ' from ' + (out.sender || 'the gateway')
+          ? 'Sent to +' + out.to + ' as ' + (out.sender || 'the gateway') +
+            (out.provider ? ' via ' + out.provider : '')
           : 'Not sent: ' + (out.detail || 'the gateway refused it'));
       } catch (e) {
         A.toast(e.message);
