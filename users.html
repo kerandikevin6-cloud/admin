@@ -325,6 +325,74 @@
     });
   }
 
+  /* Load funds: dollars onto the real balance for somebody in a country
+     no gateway reaches, who has sent the money some other way. Only the
+     roles the server accepts see it, so nobody fills in a form that is
+     going to be refused. */
+  var CREDIT_ROLES = ['super_admin', 'admin', 'finance'];
+
+  function creditSection() {
+    var me = A.session() || {};
+    if (CREDIT_ROLES.indexOf(me.role) === -1) return '';
+    return '<div><div class="sect-label">Load funds</div>' +
+      '<div class="muted" style="font-size:12.5px;line-height:1.6;margin-bottom:10px">' +
+        'Adds dollars to the real balance and shows on their deposits as an admin credit. ' +
+        'Only once the money has actually arrived.</div>' +
+      field('cAmount', 'Amount (USD)', '', '', 'inputmode="decimal" placeholder="100.00"') +
+      field('cNote', 'Where the money came from', '',
+            'Kept on the record with your name. e.g. Western Union MTCN 1234567890.',
+            'maxlength="300" placeholder="Bank transfer, ref ..."') +
+      '<button class="btn btn-primary btn-sm" id="cSave">Credit account</button>' +
+    '</div>';
+  }
+
+  function wireCredit(u) {
+    var save = document.getElementById('cSave');
+    if (!save) return;
+    /* One per open drawer: a second press of the same form, or a retry
+       after a dropped response, carries the same id and cannot pay twice. */
+    var requestId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+
+    function err(id, msg) {
+      var box = document.getElementById(id + 'Error');
+      if (!box) return;
+      box.textContent = msg || '';
+      box.hidden = !msg;
+    }
+
+    save.addEventListener('click', async function () {
+      err('cAmount', ''); err('cNote', '');
+      var raw = ((document.getElementById('cAmount') || {}).value || '').replace(/[,\s$]/g, '');
+      var note = ((document.getElementById('cNote') || {}).value || '').trim();
+
+      if (!/^\d+(\.\d{1,2})?$/.test(raw) || Number(raw) < 1) {
+        err('cAmount', 'A dollar amount, at least 1.00');
+        return;
+      }
+      var cents = Math.round(Number(raw) * 100);
+      if (cents > 5000000) { err('cAmount', 'At most 50,000.00 in one credit'); return; }
+      if (note.length < 3) { err('cNote', 'Say where the money came from'); return; }
+
+      if (!window.confirm('Credit ' + A.money(cents, 'USD') + ' to ' + u.name + '’s real balance?')) return;
+
+      save.disabled = true;
+      save.innerHTML = A.loader('sm') + 'Crediting';
+      var out;
+      try {
+        out = await A.data.creditUser(u.id, cents, note, requestId);
+      } catch (e) {
+        save.disabled = false;
+        save.textContent = 'Credit account';
+        err('cAmount', e.message);
+        return;
+      }
+      A.closeAll();
+      await load();
+      A.toast(A.money(cents, 'USD') + ' credited to ' + u.name +
+        (out && out.balanceMinor != null ? '. Balance ' + A.money(out.balanceMinor, 'USD') : ''));
+    });
+  }
+
   async function showUser(id) {
     A.openDrawer('<div class="drawer-body">' + A.loadingBlock('Loading account') + '</div>');
 
@@ -389,6 +457,7 @@
           '<div class="kv"><span>Contracts placed</span><b class="num">' +
             A.count(u.trades) + '</b></div>' +
         '</div>' +
+        creditSection() +
         walletSection(u, rail) +
         '<div><div class="sect-label">Recent deposits</div>' + deposits + '</div>' +
         '<div><div class="sect-label">Recent withdrawals</div>' + outs + '</div>' +
@@ -412,6 +481,7 @@
       '</div>');
 
     wireWallet(u, rail);
+    wireCredit(u);
 
     var foot = document.querySelector('.drawer-foot');
     if (foot) foot.addEventListener('click', async function (e) {

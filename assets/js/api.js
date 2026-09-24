@@ -233,6 +233,16 @@
       };
     },
 
+    /* Dollars onto a customer's real balance, for somebody no gateway
+       reaches. requestId is made once per form, so a retry of the same
+       click is refused by the server rather than paid twice. */
+    creditUser: async function (id, amountMinor, note, requestId) {
+      var out = await call('/admin/users/' + encodeURIComponent(id) + '/credit', {
+        method: 'POST', body: { amountMinor: amountMinor, note: note, requestId: requestId }
+      });
+      return { payment: normalisePayment(out.payment), balanceMinor: out.balanceMinor };
+    },
+
     updateUser: async function (id, patch) {
       var out = await call('/admin/users/' + encodeURIComponent(id), {
         method: 'PATCH', body: patch
