@@ -32,7 +32,8 @@
     /* A flask: the one place in the console where things are tried
        rather than done. */
     flask: 'M10 3h4|M10.5 3v6.2L5.2 18A2 2 0 007 21h10a2 2 0 001.8-2.9L13.5 9.2V3|M7.8 14h8.4',
-    copy: 'M9 9h11v11H9z|M5.5 15H5a1 1 0 01-1-1V5a1 1 0 011-1h9a1 1 0 011 1v.5'
+    copy: 'M9 9h11v11H9z|M5.5 15H5a1 1 0 01-1-1V5a1 1 0 011-1h9a1 1 0 011 1v.5',
+    key: 'M10.5 12.5L20 3|M16 7l3 3|M14 9l2 2'
   };
 
   function icon(name, size) {
@@ -42,6 +43,7 @@
     if (name === 'search') body += '<circle cx="11" cy="11" r="6.4"></circle>';
     if (name === 'ban') body += '<circle cx="12" cy="12" r="8.5"></circle>';
     if (name === 'globe') body += '<circle cx="12" cy="12" r="9"></circle>';
+    if (name === 'key') body += '<circle cx="7.5" cy="15.5" r="4"></circle>';
     for (var i = 0; i < parts.length; i++) if (parts[i]) body += '<path d="' + parts[i] + '"></path>';
     return '<svg width="' + (size || 17) + '" height="' + (size || 17) + '" viewBox="0 0 24 24" ' +
       'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" ' +
@@ -108,7 +110,7 @@
   var PILL = {
     vip: 'info', standard: 'off',
     success: 'ok', paid: 'ok', verified: 'ok', active: 'ok', approved: 'info',
-    pending: 'wait', unverified: 'off',
+    pending: 'wait', unverified: 'off', unused: 'ok', used: 'info', revoked: 'off',
     failed: 'bad', rejected: 'bad', suspended: 'bad', cancelled: 'off'
   };
   function pill(value) {
@@ -303,6 +305,9 @@
     rejectWithdrawal: API.rejectWithdrawal,
     domains: API.domains,
     createDomain: API.createDomain,
+    copyKeys: API.copyKeys,
+    createCopyKeys: API.createCopyKeys,
+    revokeCopyKey: API.revokeCopyKey,
     updateDomain: API.updateDomain,
     sessions: API.sessions,
     startSession: API.startSession,
@@ -337,6 +342,9 @@
     rejectWithdrawal: none,
     domains: function () { return Promise.resolve([]); },
     createDomain: none,
+    copyKeys: function () { return Promise.resolve([]); },
+    createCopyKeys: none,
+    revokeCopyKey: none,
     updateDomain: none,
     sessions: function () { return Promise.resolve([]); },
     startSession: none,
@@ -369,6 +377,8 @@
     { id: 'verifications', label: 'Verifications', href: 'verifications.html', icon: 'shield' },
     { id: 'tickets', label: 'Support', href: 'tickets.html', icon: 'logs' },
     { id: 'domains', label: 'Domains', href: 'domains.html', icon: 'globe' },
+    { id: 'copykeys', label: 'Copy keys', href: 'copy-keys.html', icon: 'key',
+      roles: ['super_admin', 'admin', 'manager', 'operator'] },
     { section: 'Growth' },
     { id: 'sessions', label: 'Sessions', href: 'sessions.html', icon: 'live' },
     { section: 'System' },

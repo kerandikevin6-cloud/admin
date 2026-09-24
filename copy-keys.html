@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Novi Admin, Copy keys</title>
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/css/admin.css">
+</head>
+<body data-page="copykeys" data-title="Copy keys">
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/admin.js"></script>
+<script>
+(function () {
+  var A = window.Admin;
+  if (!A.mountChrome()) return;
+
+  /* ---------- copy-trading keys ----------
+     A key switches copy trading on for the one account that enters it.
+     Made here, handed to the customer by whoever is talking to them, and
+     spent the moment it is accepted. An unused key can be revoked; a
+     used one is a record of who has copy trading and why. */
+  var page = document.getElementById('page');
+  var keys = [];
+  var filter = 'all';
+
+  async function load() {
+    page.innerHTML = A.loadingBlock('Loading keys');
+    try {
+      keys = await A.data.copyKeys();
+    } catch (err) {
+      page.innerHTML = A.errorBlock(err.message, 'retry');
+      document.getElementById('retry').addEventListener('click', load);
+      return;
+    }
+    render();
+  }
+
+  function makeButton() {
+    return '<button class="btn btn-primary btn-sm" id="makeBtn">' +
+      A.icon('plus', 15) + 'Make keys</button>';
+  }
+
+  function render() {
+    var unused = keys.filter(function (k) { return k.status === 'unused'; });
+    var used = keys.filter(function (k) { return k.status === 'used'; });
+    var shown = filter === 'all' ? keys : keys.filter(function (k) { return k.status === filter; });
+
+    var rows = shown.map(function (k) {
+      return '<tr>' +
+        '<td><span class="cell-main num">' + A.esc(k.key) + '</span>' +
+          (k.note ? '<div class="cell-sub">' + A.esc(k.note) + '</div>' : '') + '</td>' +
+        '<td>' + A.pill(k.status) + '</td>' +
+        '<td>' + (k.redeemedByEmail ? A.esc(k.redeemedByEmail) +
+            '<div class="cell-sub">' + A.dateTime(k.redeemedAt) + '</div>' : '—') + '</td>' +
+        '<td>' + A.dateTime(k.createdAt) +
+          (k.createdBy ? '<div class="cell-sub">' + A.esc(k.createdBy) + '</div>' : '') + '</td>' +
+        '<td class="right">' +
+          (k.status === 'unused'
+            ? '<button class="btn btn-ghost btn-sm" data-copy="' + A.esc(k.key) + '">' +
+                A.icon('copy', 14) + 'Copy</button> ' +
+              '<button class="btn btn-danger btn-sm" data-revoke="' + A.esc(k.id) + '">Revoke</button>'
+            : '') +
+        '</td>' +
+      '</tr>';
+    });
+
+    function tab(id, label) {
+      return '<button class="btn btn-sm ' + (filter === id ? 'btn-primary' : 'btn-ghost') +
+        '" data-filter="' + id + '">' + label + '</button>';
+    }
+
+    page.innerHTML =
+      '<div class="kpis">' +
+        A.kpi('Keys made', A.count(keys.length), 'all time') +
+        A.kpi('Unused', A.count(unused.length), 'ready to hand out') +
+        A.kpi('Activated', A.count(used.length), 'accounts with copy trading', 'pos') +
+      '</div>' +
+      '<div class="filters">' + makeButton() + ' ' +
+        tab('all', 'All') + ' ' + tab('unused', 'Unused') + ' ' +
+        tab('used', 'Used') + ' ' + tab('revoked', 'Revoked') +
+      '</div>' +
+      (keys.length
+        ? A.card('Keys', A.table([
+            { label: 'Key' }, { label: 'Status' }, { label: 'Used by' },
+            { label: 'Made' }, { label: '', right: true }
+          ], rows), '', true)
+        : A.card('Keys', A.emptyBlock('No keys yet',
+            'Make a key, give it to the customer, and copy trading switches on ' +
+            'for their account when they enter it.', makeButton()), '', true)) +
+      '<div class="foot-note">Each key works once, on one account. Keys are not written ' +
+        'to the audit trail, only that they were made, so treat this page like a ' +
+        'drawer of cash: copy a key for the person in front of you and no one else.</div>';
+  }
+
+  page.addEventListener('click', async function (e) {
+    if (e.target.closest('#makeBtn')) { openMake(); return; }
+
+    var f = e.target.closest('[data-filter]');
+    if (f) { filter = f.getAttribute('data-filter'); render(); return; }
+
+    var c = e.target.closest('[data-copy]');
+    if (c) { A.copyText(c.getAttribute('data-copy')); return; }
+
+    var r = e.target.closest('[data-revoke]');
+    if (r) {
+      r.disabled = true;
+      r.innerHTML = A.loader('sm') + 'Revoking';
+      try {
+        await A.data.revokeCopyKey(r.getAttribute('data-revoke'));
+      } catch (err) {
+        r.disabled = false; r.textContent = 'Revoke';
+        A.toast(err.message); return;
+      }
+      await load();
+      A.toast('Key revoked');
+    }
+  });
+
+  function openMake() {
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>Make copy-trading keys</h2>' +
+        '<p>Each one switches copy trading on for the account that enters it.</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        '<div class="field-block"><label for="kCount">How many</label>' +
+          '<div class="field"><input id="kCount" type="number" min="1" max="50" value="1"></div>' +
+          '<div class="field-error" id="kCountError" hidden></div></div>' +
+        '<div class="field-block"><label for="kNote">Note</label>' +
+          '<div class="field"><input id="kNote" maxlength="200" placeholder="Who it is for"></div>' +
+          '<span class="hint">Optional. Shown next to the key on this page.</span></div>' +
+        '<div id="kOut"></div>' +
+      '</div>' +
+      '<div class="drawer-foot">' +
+        '<button class="btn btn-primary btn-sm" data-act="make">Make keys</button>' +
+        '<button class="btn btn-ghost btn-sm" data-close>Close</button>' +
+      '</div>');
+
+    var drawerFoot = document.querySelector('.drawer-foot');
+    drawerFoot.addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act="make"]');
+      if (!b) return;
+
+      var n = Math.floor(+document.getElementById('kCount').value || 0);
+      var errBox = document.getElementById('kCountError');
+      errBox.hidden = true;
+      if (n < 1 || n > 50) {
+        errBox.textContent = 'Between 1 and 50'; errBox.hidden = false; return;
+      }
+
+      b.disabled = true;
+      b.innerHTML = A.loader('sm') + 'Making';
+      var made;
+      try {
+        made = await A.data.createCopyKeys({
+          count: n,
+          note: document.getElementById('kNote').value.trim() || undefined
+        });
+      } catch (err) {
+        b.disabled = false; b.textContent = 'Make keys';
+        errBox.textContent = err.message; errBox.hidden = false; return;
+      }
+
+      b.disabled = false; b.textContent = 'Make more';
+      var list = made.map(function (k) { return k.key; });
+      document.getElementById('kOut').innerHTML =
+        '<div class="sect-label">New keys</div>' +
+        list.map(function (k) {
+          return '<div class="kv"><b class="num">' + A.esc(k) + '</b>' +
+            '<button class="btn btn-ghost btn-sm" data-copyone="' + A.esc(k) + '">' +
+              A.icon('copy', 14) + 'Copy</button></div>';
+        }).join('') +
+        (list.length > 1
+          ? '<button class="btn btn-ghost btn-sm" id="copyAll">' +
+              A.icon('copy', 14) + 'Copy all</button>'
+          : '');
+
+      var out = document.getElementById('kOut');
+      out.onclick = function (ev) {
+        var one = ev.target.closest('[data-copyone]');
+        if (one) A.copyText(one.getAttribute('data-copyone'));
+        if (ev.target.closest('#copyAll')) A.copyText(list.join('\n'));
+      };
+      load();
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

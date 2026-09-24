@@ -369,6 +369,25 @@
       });
     },
 
+    copyKeys: async function () {
+      var out = await call('/admin/copy-keys');
+      return (out.keys || []).map(function (k) {
+        k.createdAt = ms(k.createdAt);
+        k.redeemedAt = ms(k.redeemedAt);
+        k.revokedAt = ms(k.revokedAt);
+        return k;
+      });
+    },
+    createCopyKeys: async function (body) {
+      var out = await call('/admin/copy-keys', { method: 'POST', body: body });
+      return out.keys || [];
+    },
+    revokeCopyKey: async function (id) {
+      var out = await call('/admin/copy-keys/' + encodeURIComponent(id) + '/revoke',
+        { method: 'POST' });
+      return out.key;
+    },
+
     domains: async function () {
       var out = await call('/admin/domains');
       return out.domains || [];
