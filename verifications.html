@@ -38,6 +38,15 @@
     render();
   }
 
+  var KIND = {
+    full: 'Address + ID',
+    proof_of_address: 'Proof of address',
+    government_id: 'Government ID',
+    government_id_front: 'ID, front',
+    government_id_back: 'ID, back'
+  };
+  function kindLabel(k) { return KIND[k] || 'Document'; }
+
   function tabs() {
     return '<div class="filters">' +
       '<div class="seg">' +
@@ -69,7 +78,7 @@
           '<div class="cell-sub">' + A.esc(v.userEmail || '') + '</div></td>' +
         '<td>' + A.esc(v.userPhone ? '+' + v.userPhone : '') +
           '<div class="cell-sub">' + A.esc(v.userCountry || '') + '</div></td>' +
-        '<td>' + (v.kind === 'proof_of_address' ? 'Proof of address' : 'Government ID') + '</td>' +
+        '<td>' + kindLabel(v.kind) + '</td>' +
         '<td>' + A.pill(v.status) + '</td>' +
         '<td class="right muted">' + A.ago(v.at) + '</td>' +
       '</tr>';
@@ -101,16 +110,23 @@
     if (!v) return;
     var decided = v.status !== 'pending';
 
-    /* The document itself, inline where possible. A reviewer who has to
-       download a file to look at it will approve things they have not
-       looked at. */
-    var preview = !v.documentUrl
-      ? '<div class="muted" style="font-size:12.5px">The document link could not be created.</div>'
-      : (v.mimeType === 'application/pdf'
-          ? '<a class="btn btn-ghost btn-sm" href="' + A.esc(v.documentUrl) +
-            '" target="_blank" rel="noopener noreferrer">Open the PDF</a>'
-          : '<a href="' + A.esc(v.documentUrl) + '" target="_blank" rel="noopener noreferrer">' +
-            '<img src="' + A.esc(v.documentUrl) + '" alt="Submitted document" class="kyc-doc"></a>');
+    /* Every document in the submission, inline where possible, so one
+       look covers the address and both sides of the ID before the one
+       approval. A reviewer who has to download a file to look at it will
+       approve things they have not looked at. */
+    var docs = (v.documents && v.documents.length) ? v.documents
+      : [{ kind: v.kind, mimeType: v.mimeType, url: v.documentUrl }];
+    var preview = docs.map(function (d) {
+      var body = !d.url
+        ? '<div class="muted" style="font-size:12.5px">The document link could not be created.</div>'
+        : (d.mimeType === 'application/pdf'
+            ? '<a class="btn btn-ghost btn-sm" href="' + A.esc(d.url) +
+              '" target="_blank" rel="noopener noreferrer">Open the PDF</a>'
+            : '<a href="' + A.esc(d.url) + '" target="_blank" rel="noopener noreferrer">' +
+              '<img src="' + A.esc(d.url) + '" alt="' + A.esc(kindLabel(d.kind)) + '" class="kyc-doc"></a>');
+      return '<div style="margin-bottom:12px"><div class="muted" style="font-size:12px;margin-bottom:6px">' +
+        A.esc(kindLabel(d.kind)) + '</div>' + body + '</div>';
+    }).join('');
 
     A.openDrawer(
       '<div class="drawer-head">' +
@@ -119,10 +135,9 @@
         '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
       '</div>' +
       '<div class="drawer-body">' +
-        '<div><div class="sect-label">Document</div>' + preview + '</div>' +
+        '<div><div class="sect-label">' + (docs.length > 1 ? 'Documents' : 'Document') + '</div>' + preview + '</div>' +
         '<div><div class="sect-label">Submission</div>' +
-          '<div class="kv"><span>Type</span><b>' +
-            (v.kind === 'proof_of_address' ? 'Proof of address' : 'Government ID') + '</b></div>' +
+          '<div class="kv"><span>Type</span><b>' + kindLabel(v.kind) + '</b></div>' +
           '<div class="kv"><span>Sent</span><b>' + A.dateTime(v.at) + '</b></div>' +
           '<div class="kv"><span>Status</span><b>' + A.pill(v.status) + '</b></div>' +
           (v.note ? '<div class="kv"><span>Note</span><b>' + A.esc(v.note) + '</b></div>' : '') +
