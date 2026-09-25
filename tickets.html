@@ -73,7 +73,8 @@
     var list = rows.map(function (t) {
       return '<tr class="row-click" data-ticket="' + A.esc(t.id) + '">' +
         '<td><div class="cell-main">' + A.esc(t.userName || 'Unnamed') +
-            (t.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') + '</div>' +
+            (t.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
+            (t.userTier === 'vip' && t.userDemoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</div>' +
           '<div class="cell-sub">' + A.esc(preview(t.body)) + '</div></td>' +
         '<td>' + A.esc(LABEL[t.category] || t.category) + '</td>' +
         '<td>' + A.pill(t.status) + '</td>' +

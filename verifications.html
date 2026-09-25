@@ -74,7 +74,8 @@
     var list = rows.map(function (v) {
       return '<tr class="row-click" data-verif="' + A.esc(v.id) + '">' +
         '<td><div class="cell-main">' + A.esc(v.userName || 'Unnamed') +
-            (v.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') + '</div>' +
+            (v.userTier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
+            (v.userTier === 'vip' && v.userDemoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</div>' +
           '<div class="cell-sub">' + A.esc(v.userEmail || '') + '</div></td>' +
         '<td>' + A.esc(v.userPhone ? '+' + v.userPhone : '') +
           '<div class="cell-sub">' + A.esc(v.userCountry || '') + '</div></td>' +

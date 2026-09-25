@@ -87,7 +87,8 @@
            A.who(), which escapes its arguments and would print the
            markup rather than render it. */
         '<td><div class="cell-main">' + A.esc(u.name) +
-            (u.tier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') + '</div>' +
+            (u.tier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
+            (u.tier === 'vip' && u.demoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</div>' +
           '<div class="cell-sub">' + A.esc(u.email) + '</div></td>' +
         '<td>' + A.esc(u.countryName || u.country || '') +
           '<div class="cell-sub">' + (u.phone ? '+' + A.esc(u.phone) : '') + '</div></td>' +
@@ -432,7 +433,9 @@
 
     A.openDrawer(
       '<div class="drawer-head">' +
-        '<div style="flex:1"><h2>' + A.esc(u.name) + '</h2>' +
+        '<div style="flex:1"><h2>' + A.esc(u.name) +
+          (u.tier === 'vip' ? '<span class="tier-badge">VIP</span>' : '') +
+          (u.tier === 'vip' && u.demoMode ? '<span class="tier-badge warn">DEMO</span>' : '') + '</h2>' +
         '<p>' + A.esc(u.email) + '</p></div>' +
         '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
       '</div>' +
