@@ -32,7 +32,7 @@
       var results = await Promise.all([
         A.data.stats(),
         A.data.daily(14),
-        A.data.payments({ limit: 8 }),
+        A.data.payments({ limit: 8, provider: 'payhero' }),   /* M-Pesa prompts only */
         A.data.withdrawals({ status: 'pending', limit: 6 })
       ]);
       stats = results[0];
