@@ -683,3 +683,12 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
   background:var(--surface-2);border:1px solid var(--line);
 }
 .seg button.on{background:var(--purple);color:#fff}
+
+/* ---------------- which site a deposit came through ---------------- */
+/* Novi is the default and stays quiet; Zeno is marked so it can be
+   picked out of a long list at a glance. */
+.site-tag{
+  display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);
+}
+.site-tag.zeno{color:#5B52F0;border:1px solid currentColor;padding:1px 6px;border-radius:4px}

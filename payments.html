@@ -21,7 +21,16 @@
   if (!A.mountChrome()) return;   /* not signed in */
 
   var page = document.getElementById('page');
-  var state = { q: '', status: 'all', method: 'all' };
+  var state = { q: '', status: 'all', method: 'all', site: 'all' };
+  /* The sites that share this backend, by the name staff call them. */
+  var SITES = [['all', 'Every site'], ['novibinary.com', 'Novi'], ['zenobinary.com', 'Zeno']];
+  function siteName(host) {
+    return host === 'zenobinary.com' ? 'Zeno' : host === 'novibinary.com' ? 'Novi' : host;
+  }
+  function siteTag(host) {
+    return '<span class="site-tag' + (host === 'zenobinary.com' ? ' zeno' : '') + '">' +
+      A.esc(siteName(host)) + '</span>';
+  }
   var rows = [], total = 0, loading = false, failure = null, timer = null;
 
   function search(value) {
@@ -36,6 +45,7 @@
       var out = await A.data.payments({
         q: state.q, status: state.status,
         method: state.method,
+        site: state.site,
         provider: state.method === 'mpesa' ? 'payhero' :
                   state.method === 'card' ? 'paystack' : 'all'
       });
@@ -80,23 +90,30 @@
             m[1] + '</button>';
         }).join('') +
       '</div>' +
+      '<div class="seg" id="siteSeg">' +
+        SITES.map(function (s) {
+          return '<button data-site="' + s[0] + '" class="' + (state.site === s[0] ? 'on' : '') + '">' +
+            s[1] + '</button>';
+        }).join('') +
+      '</div>' +
     '</div>';
 
     var body;
     if (loading) body = A.loadingBlock('Loading deposits');
     else if (failure) body = A.errorBlock(failure, 'retry');
     else if (!rows.length) body = A.emptyBlock('No deposits yet',
-      state.q || state.status !== 'all' || state.method !== 'all'
+      state.q || state.status !== 'all' || state.method !== 'all' || state.site !== 'all'
         ? 'Nothing matches those filters.'
         : 'Every attempt to pay in shows here, whether it settles or not.');
     else body = A.table([
-      { label: 'Reference' }, { label: 'Customer' }, { label: 'Method' },
+      { label: 'Reference' }, { label: 'Customer' }, { label: 'Site' }, { label: 'Method' },
       { label: 'Paid', right: true }, { label: 'Credited', right: true },
       { label: 'Status', right: true }, { label: 'When', right: true }
     ], rows.map(function (p) {
       return '<tr class="row-click" data-payment="' + A.esc(p.id) + '">' +
         '<td class="num">' + A.esc(p.reference) + '</td>' +
         '<td>' + A.who(p.userName, p.userEmail) + '</td>' +
+        '<td>' + siteTag(p.site) + '</td>' +
         '<td>' + A.esc(p.providerLabel) + '</td>' +
         '<td class="num right">' + A.money(p.amountMinor, p.currency) + '</td>' +
         '<td class="num right">' +
@@ -130,6 +147,11 @@
       var b = e.target.closest('[data-method]');
       if (b) { state.method = b.getAttribute('data-method'); load(); }
     });
+    var st = document.getElementById('siteSeg');
+    if (st) st.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-site]');
+      if (b) { state.site = b.getAttribute('data-site'); load(); }
+    });
     var retry = document.getElementById('retry');
     if (retry) retry.addEventListener('click', load);
 
@@ -152,6 +174,7 @@
       '<div class="drawer-body">' +
         '<div><div class="sect-label">Payment</div>' +
           '<div class="kv"><span>Status</span><b>' + A.pill(p.status) + '</b></div>' +
+          '<div class="kv"><span>Site</span><b>' + siteTag(p.site) + ' ' + A.esc(p.site) + '</b></div>' +
           '<div class="kv"><span>Method</span><b>' + A.esc(p.providerLabel) + '</b></div>' +
           '<div class="kv"><span>Provider</span><b>' + A.esc(p.provider) + '</b></div>' +
           '<div class="kv"><span>Amount paid</span><b class="num">' +

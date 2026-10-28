@@ -134,6 +134,8 @@
       /* Only a chain transfer carries these, and they are the only
          evidence there is for one. */
       txHash: p.txHash || null, network: p.network || null,
+      /* The site it was paid through: novibinary.com or zenobinary.com. */
+      site: p.site || 'novibinary.com',
       created: ms(p.created), settled: ms(p.settled)
     };
   }
