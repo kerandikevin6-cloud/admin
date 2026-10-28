@@ -691,4 +691,6 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
   display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.07em;
   text-transform:uppercase;color:var(--muted);
 }
-.site-tag.zeno{color:#5B52F0;border:1px solid currentColor;padding:1px 6px;border-radius:4px}
+.site-tag.zeno,.site-tag.other{border:1px solid currentColor;padding:1px 6px;border-radius:4px}
+.site-tag.zeno{color:#EA580C}
+.site-tag.other{color:#0F9D58}

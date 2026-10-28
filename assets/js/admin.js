@@ -113,6 +113,27 @@
     pending: 'wait', unverified: 'off', unused: 'ok', used: 'info', revoked: 'off',
     failed: 'bad', rejected: 'bad', suspended: 'bad', cancelled: 'off'
   };
+  /* ---------- which site ----------
+     Several front ends share this backend. Each gets a short name and a
+     colour of its own, so a row says at a glance where it came from.
+     Novi, the original, stays grey; any site not named here (a new
+     domain added on the Domains page) is shown by its first label in
+     the third colour until it is given one. */
+  var SITE_LOOK = {
+    'novibinary.com': { name: 'Novi', cls: 'novi' },
+    'zenobinary.com': { name: 'Zeno', cls: 'zeno' }
+  };
+  function siteName(host) {
+    var k = SITE_LOOK[host];
+    if (k) return k.name;
+    var first = String(host || '').split('.')[0];
+    return first.charAt(0).toUpperCase() + first.slice(1);
+  }
+  function siteTag(host) {
+    var cls = (SITE_LOOK[host] || { cls: 'other' }).cls;
+    return '<span class="site-tag ' + cls + '" title="' + esc(host) + '">' + esc(siteName(host)) + '</span>';
+  }
+
   function pill(value) {
     return '<span class="pill ' + (PILL[value] || 'off') + '">' + esc(value) + '</span>';
   }
@@ -643,7 +664,7 @@
     usd: usd, usdShort: usdShort, fromUsd: fromUsd, rate: KES_PER_USD,
     roles: ROLES, roleLabel: roleLabel, can: can, signOut: signOut,
     date: date, dateTime: dateTime, ago: ago, initials: initials, esc: esc,
-    pill: pill, kpi: kpi, card: card, table: table, who: who,
+    pill: pill, siteTag: siteTag, siteName: siteName, kpi: kpi, card: card, table: table, who: who,
     donut: donut, trend: trend, slice: SLICE,
     data: Data, loadingBlock: loadingBlock, errorBlock: errorBlock,
     emptyBlock: emptyBlock,

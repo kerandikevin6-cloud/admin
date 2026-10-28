@@ -74,7 +74,7 @@
     var rows = domains.map(function (d, i) {
       return '<tr class="row-click" data-host="' + A.esc(d.host) + '">' +
         '<td><span class="swatch" style="background:' + A.slice[i % A.slice.length] + '"></span>' +
-          '<span class="cell-main">' + A.esc(d.host) + '</span>' +
+          '<span class="cell-main">' + A.siteTag(d.host) + ' ' + A.esc(d.host) + '</span>' +
           '<div class="cell-sub">' + A.esc(d.label) + '</div></td>' +
         '<td class="num right">' + A.count(d.users) + '</td>' +
         '<td class="num right">' + A.money(d.depositsMinor) + '</td>' +

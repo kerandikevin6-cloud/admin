@@ -22,15 +22,18 @@
 
   var page = document.getElementById('page');
   var state = { q: '', status: 'all', method: 'all', site: 'all' };
-  /* The sites that share this backend, by the name staff call them. */
+  /* The sites that share this backend. Read from the Domains page, so a
+     new site shows up here as soon as it is added there. The console's
+     own host is not a site anyone pays through. */
   var SITES = [['all', 'Every site'], ['novibinary.com', 'Novi'], ['zenobinary.com', 'Zeno']];
-  function siteName(host) {
-    return host === 'zenobinary.com' ? 'Zeno' : host === 'novibinary.com' ? 'Novi' : host;
-  }
-  function siteTag(host) {
-    return '<span class="site-tag' + (host === 'zenobinary.com' ? ' zeno' : '') + '">' +
-      A.esc(siteName(host)) + '</span>';
-  }
+  var siteTag = A.siteTag;
+  Promise.resolve(A.data.domains ? A.data.domains() : []).then(function (list) {
+    var hosts = (list || []).map(function (d) { return d.host; })
+      .filter(function (h) { return h && !/^adminsite\./.test(h); });
+    if (!hosts.length) return;
+    SITES = [['all', 'Every site']].concat(hosts.map(function (h) { return [h, A.siteName(h)]; }));
+    if (!loading) paint();
+  }, function () {});
   var rows = [], total = 0, loading = false, failure = null, timer = null;
 
   function search(value) {
