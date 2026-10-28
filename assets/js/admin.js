@@ -121,7 +121,8 @@
      the third colour until it is given one. */
   var SITE_LOOK = {
     'novibinary.com': { name: 'Novi', cls: 'novi' },
-    'zenobinary.com': { name: 'Zeno', cls: 'zeno' }
+    'zenobinary.com': { name: 'Zeno', cls: 'zeno' },
+    'zovianbinary.com': { name: 'Zovian', cls: 'zovian' }
   };
   function siteName(host) {
     var k = SITE_LOOK[host];
