@@ -122,7 +122,9 @@
   var SITE_LOOK = {
     'novibinary.com': { name: 'Novi', cls: 'novi' },
     'zenobinary.com': { name: 'Zeno', cls: 'zeno' },
-    'zovianbinary.com': { name: 'Zovian', cls: 'zovian' }
+    'zovianbinary.com': { name: 'Zovian', cls: 'zovian' },
+    'zenikbinary.com': { name: 'Zenik', cls: 'zenik' },
+    'venobinary.com': { name: 'Veno', cls: 'veno' }
   };
   function siteName(host) {
     var k = SITE_LOOK[host];
