@@ -124,7 +124,8 @@
     'zenobinary.com': { name: 'Zeno', cls: 'zeno' },
     'zovianbinary.com': { name: 'Zovian', cls: 'zovian' },
     'zenikbinary.com': { name: 'Zenik', cls: 'zenik' },
-    'venobinary.com': { name: 'Veno', cls: 'veno' }
+    'venobinary.com': { name: 'Veno', cls: 'veno' },
+    'zavibinary.com': { name: 'Zavi', cls: 'zavi' }
   };
   function siteName(host) {
     var k = SITE_LOOK[host];
