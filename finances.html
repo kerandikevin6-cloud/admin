@@ -71,9 +71,13 @@
     ], { centre: A.shortMoney(grossIn), centreNote: 'taken in', label: 'Where the money sits' });
 
     var byDomain = domains.length
-      ? A.donut(domains.map(function (d) {
-          return { label: d.host, value: d.depositsMinor, display: A.shortMoney(d.depositsMinor) };
-        }), { centre: String(domains.length), centreNote: 'domains', label: 'By domain' })
+      ? A.hbars(domains.slice().sort(function (a, b) { return b.depositsMinor - a.depositsMinor; })
+          .map(function (d) {
+            return {
+              name: A.siteTag(d.host) + ' <span class="hbar-host">' + A.esc(d.host) + '</span>',
+              value: d.depositsMinor, display: A.shortMoney(d.depositsMinor), color: A.siteColor(d.host)
+            };
+          }), { label: 'Deposits by domain', note: 'Bar length on a square-root scale so smaller sites stay visible.' })
       : A.emptyBlock('No domains yet', 'Add one to attribute deposits by host.',
           '<a class="btn btn-ghost btn-sm" href="domains.html">Add a domain</a>');
 
@@ -90,7 +94,7 @@
 
     var domRows = domains.map(function (d, i) {
       return '<tr>' +
-        '<td><span class="swatch" style="background:' + A.slice[i % A.slice.length] + '"></span>' +
+        '<td><span class="swatch" style="background:' + A.siteColor(d.host) + '"></span>' +
           A.esc(d.host) + '<div class="cell-sub">' + A.esc(d.label) + ' \u00b7 ' +
           A.count(d.users) + ' accounts</div></td>' +
         '<td class="num right">' + A.money(d.depositsMinor) + '</td>' +

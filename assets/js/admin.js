@@ -120,13 +120,16 @@
      domain added on the Domains page) is shown by its first label in
      the third colour until it is given one. */
   var SITE_LOOK = {
-    'novibinary.com': { name: 'Novi', cls: 'novi' },
-    'zenobinary.com': { name: 'Zeno', cls: 'zeno' },
-    'zovianbinary.com': { name: 'Zovian', cls: 'zovian' },
-    'zenikbinary.com': { name: 'Zenik', cls: 'zenik' },
-    'venobinary.com': { name: 'Veno', cls: 'veno' },
-    'zavibinary.com': { name: 'Zavi', cls: 'zavi' }
+    'novibinary.com': { name: 'Novi', cls: 'novi', color: '#64748B' },
+    'zenobinary.com': { name: 'Zeno', cls: 'zeno', color: '#EA580C' },
+    'zovianbinary.com': { name: 'Zovian', cls: 'zovian', color: '#0F9D58' },
+    'zenikbinary.com': { name: 'Zenik', cls: 'zenik', color: '#DB2777' },
+    'venobinary.com': { name: 'Veno', cls: 'veno', color: '#0891B2' },
+    'zavibinary.com': { name: 'Zavi', cls: 'zavi', color: '#9333EA' }
   };
+  function siteColor(host) {
+    return (SITE_LOOK[host] || { color: '#CA8A04' }).color;
+  }
   function siteName(host) {
     var k = SITE_LOOK[host];
     if (k) return k.name;
@@ -224,6 +227,35 @@
           '<u>' + share.toFixed(share >= 10 ? 0 : 1) + '%</u>' +
         '</li>';
       }).join('') + '</ul>' +
+    '</div>';
+  }
+
+  /* Bars, one per row, for comparing many things of very different
+     size. A donut with one site at 99% shows a single ring and five
+     invisible slivers; here every row has its own line and its own
+     figure. The length is on a square-root scale so a small site still
+     shows a visible bar beside a large one; the figure and share beside
+     it are exact. */
+  function hbars(rows, opts) {
+    opts = opts || {};
+    var total = rows.reduce(function (a, r) { return a + Math.max(0, r.value || 0); }, 0);
+    var top = rows.reduce(function (a, r) { return Math.max(a, r.value || 0); }, 0);
+    return '<div class="hbars" role="img" aria-label="' + esc(opts.label || 'Comparison') + '">' +
+      rows.map(function (r) {
+        var v = Math.max(0, r.value || 0);
+        var pct = top > 0 ? Math.sqrt(v / top) * 100 : 0;
+        var share = total > 0 ? v / total * 100 : 0;
+        return '<div class="hbar">' +
+          '<div class="hbar-head">' +
+            '<span class="hbar-name">' + (r.name || esc(r.label)) + '</span>' +
+            '<b>' + esc(r.display || '') + '</b>' +
+            '<u>' + (share > 0 && share < 0.1 ? '&lt;0.1' : share.toFixed(share >= 10 || share === 0 ? 0 : 1)) + '%</u>' +
+          '</div>' +
+          '<div class="hbar-track"><i style="width:' + (v > 0 ? Math.max(pct, 1.5) : 0).toFixed(2) +
+            '%;background:' + r.color + '"></i></div>' +
+        '</div>';
+      }).join('') +
+      (opts.note ? '<div class="hbar-note">' + esc(opts.note) + '</div>' : '') +
     '</div>';
   }
 
@@ -668,8 +700,8 @@
     usd: usd, usdShort: usdShort, fromUsd: fromUsd, rate: KES_PER_USD,
     roles: ROLES, roleLabel: roleLabel, can: can, signOut: signOut,
     date: date, dateTime: dateTime, ago: ago, initials: initials, esc: esc,
-    pill: pill, siteTag: siteTag, siteName: siteName, kpi: kpi, card: card, table: table, who: who,
-    donut: donut, trend: trend, slice: SLICE,
+    pill: pill, siteTag: siteTag, siteName: siteName, siteColor: siteColor, kpi: kpi, card: card, table: table, who: who,
+    donut: donut, hbars: hbars, trend: trend, slice: SLICE,
     data: Data, loadingBlock: loadingBlock, errorBlock: errorBlock,
     emptyBlock: emptyBlock,
     openDrawer: openDrawer, closeAll: closeAll, toast: toast,
