@@ -63,30 +63,15 @@
   function paint() {
     var settled = rows.filter(function (p) { return p.status === 'success'; });
     var gross = settled.reduce(function (a, p) { return a + p.amountMinor; }, 0);
-    var stuck = rows.filter(function (p) { return p.status === 'pending'; }).length;
-    var failed = rows.filter(function (p) { return p.status === 'failed'; }).length;
-    var rate = rows.length ? settled.length / rows.length * 100 : 0;
-
     var kpis = '<div class="kpis">' +
       A.kpi('Collected', A.shortMoney(gross, 'KES'), 'in this view') +
-      A.kpi('Settlement rate', rate.toFixed(1) + '%', 'of attempts', rate >= 85 ? 'pos' : 'neg') +
-      A.kpi('Failed', A.count(failed), 'customer or provider declined') +
-      /* Stuck pendings are the ones that cost real money: the customer
-         paid and is waiting. Called out, not buried. */
-      A.kpi('Still pending', A.count(stuck),
-        stuck ? 'check these first' : 'nothing waiting', stuck ? 'neg' : 'pos') +
+      A.kpi('Successful deposits', A.count(settled.length), 'in this view') +
     '</div>';
 
     var filters = '<div class="filters">' +
       '<label class="field search-field">' + A.icon('search', 15) +
         '<input id="q" type="search" placeholder="Reference, name or email" value="' +
         A.esc(state.q) + '" aria-label="Search deposits"></label>' +
-      '<div class="seg" id="statusSeg">' +
-        ['all', 'success', 'pending', 'failed'].map(function (v) {
-          return '<button data-status="' + v + '" class="' + (state.status === v ? 'on' : '') + '">' +
-            (v === 'all' ? 'All' : v.charAt(0).toUpperCase() + v.slice(1)) + '</button>';
-        }).join('') +
-      '</div>' +
       '<div class="seg" id="methodSeg">' +
         [['all', 'Every method'], ['mpesa', 'M-Pesa'], ['card', 'Card']].map(function (m) {
           return '<button data-method="' + m[0] + '" class="' + (state.method === m[0] ? 'on' : '') + '">' +
@@ -105,9 +90,9 @@
     if (loading) body = A.loadingBlock('Loading deposits');
     else if (failure) body = A.errorBlock(failure, 'retry');
     else if (!rows.length) body = A.emptyBlock('No deposits yet',
-      state.q || state.status !== 'all' || state.method !== 'all' || state.site !== 'all'
+      state.q || state.method !== 'all' || state.site !== 'all'
         ? 'Nothing matches those filters.'
-        : 'Every attempt to pay in shows here, whether it settles or not.');
+        : 'Every successful deposit shows here.');
     else body = A.table([
       { label: 'Reference' }, { label: 'Customer' }, { label: 'Site' }, { label: 'Method' },
       { label: 'Paid', right: true }, { label: 'Credited', right: true },

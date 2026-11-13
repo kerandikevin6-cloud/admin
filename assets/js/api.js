@@ -230,7 +230,8 @@
       var out = await call('/admin/users/' + encodeURIComponent(id));
       return {
         user: normaliseUser(out.user),
-        payments: (out.payments || []).map(normalisePayment),
+        payments: (out.payments || []).map(normalisePayment)
+          .filter(function (p) { return p.status === 'success'; }),
         withdrawals: (out.withdrawals || []).map(normaliseWithdrawal)
       };
     },
@@ -252,7 +253,10 @@
       return normaliseUser(out.user);
     },
 
+    /* Only settled deposits are shown anywhere in the console: pending
+       and failed attempts are left out. */
     payments: async function (params) {
+      params = Object.assign({}, params || {}, { status: 'success' });
       var out = await call('/admin/payments' + qs(params));
       return { total: out.total, payments: (out.payments || []).map(normalisePayment) };
     },

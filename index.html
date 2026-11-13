@@ -66,7 +66,7 @@
         stats.payoutsPending + ' request' + (stats.payoutsPending === 1 ? '' : 's'),
         stats.payoutsPending ? 'neg' : '') +
       A.kpi('Settlement rate', stats.settlementRate.toFixed(1) + '%',
-        stats.failedCount + ' failed, ' + stats.pendingCount + ' pending',
+        stats.failedCount + ' failed',
         stats.settlementRate >= 85 ? 'pos' : 'neg') +
     '</div>';
 
