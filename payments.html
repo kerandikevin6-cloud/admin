@@ -107,18 +107,32 @@
        the newest 120 of it. */
     var sumMinor = summary ? summary.collectedMinor : gross;
     var sumCount = summary ? summary.count : settled.length;
+    var payers = summary && summary.depositors != null ? summary.depositors
+      : new Set(settled.map(function (p) { return p.userEmail; })).size;
+    var avg = sumCount ? Math.round(sumMinor / sumCount) : 0;
     var kpis = '<div class="kpis">' +
       A.kpi('Collected', A.shortMoney(sumMinor, 'KES'), periodLabel()) +
       A.kpi('Successful deposits', A.count(sumCount), periodLabel()) +
+      A.kpi('Depositors', A.count(payers), 'different customers') +
+      A.kpi('Average deposit', A.shortMoney(avg, 'KES'),
+        summary && summary.largestMinor ? 'largest ' + A.shortMoney(summary.largestMinor, 'KES') : 'per deposit') +
     '</div>';
 
-    var periods = '<div class="filters">' +
-      '<div class="seg" id="periodSeg">' +
-        PERIODS.map(function (m) {
-          return '<button data-period="' + m[0] + '" class="' + (state.period === m[0] ? 'on' : '') + '">' +
-            m[1] + '</button>';
-        }).join('') +
-      '</div>' +
+    function dropdown(id, label, options, current) {
+      return '<label class="field">' +
+        '<select id="' + id + '" aria-label="' + label + '">' +
+          options.map(function (o) {
+            return '<option value="' + A.esc(o[0]) + '"' + (current === o[0] ? ' selected' : '') + '>' +
+              A.esc(o[1]) + '</option>';
+          }).join('') +
+        '</select></label>';
+    }
+
+    var filters = '<div class="filters">' +
+      '<label class="field search-field">' + A.icon('search', 15) +
+        '<input id="q" type="search" placeholder="Reference, name or email" value="' +
+        A.esc(state.q) + '" aria-label="Search deposits"></label>' +
+      dropdown('periodSel', 'Period', PERIODS, state.period) +
       (state.period === 'custom'
         ? '<label class="field"><input id="dFrom" type="date" value="' + A.esc(state.from) +
             '" max="' + ymd(new Date()) + '" aria-label="From"></label>' +
@@ -126,24 +140,8 @@
           '<label class="field"><input id="dTo" type="date" value="' + A.esc(state.to) +
             '" max="' + ymd(new Date()) + '" aria-label="To"></label>'
         : '') +
-    '</div>';
-
-    var filters = '<div class="filters">' +
-      '<label class="field search-field">' + A.icon('search', 15) +
-        '<input id="q" type="search" placeholder="Reference, name or email" value="' +
-        A.esc(state.q) + '" aria-label="Search deposits"></label>' +
-      '<div class="seg" id="methodSeg">' +
-        [['all', 'Every method'], ['mpesa', 'M-Pesa'], ['card', 'Card']].map(function (m) {
-          return '<button data-method="' + m[0] + '" class="' + (state.method === m[0] ? 'on' : '') + '">' +
-            m[1] + '</button>';
-        }).join('') +
-      '</div>' +
-      '<div class="seg" id="siteSeg">' +
-        SITES.map(function (s) {
-          return '<button data-site="' + s[0] + '" class="' + (state.site === s[0] ? 'on' : '') + '">' +
-            s[1] + '</button>';
-        }).join('') +
-      '</div>' +
+      dropdown('methodSel', 'Method', [['all', 'Every method'], ['mpesa', 'M-Pesa'], ['card', 'Card']], state.method) +
+      dropdown('siteSel', 'Site', SITES, state.site) +
     '</div>';
 
     var body;
@@ -171,7 +169,7 @@
       '</tr>';
     }));
 
-    page.innerHTML = kpis + periods + filters +
+    page.innerHTML = kpis + filters +
       A.card(loading ? 'Deposits' : rows.length + ' of ' + total + ' deposits', body, '', true);
     wire();
   }
@@ -185,33 +183,20 @@
       if (box) { box.focus(); try { box.setSelectionRange(at, at); } catch (e) {} }
     });
 
-    var ss = document.getElementById('statusSeg');
-    if (ss) ss.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-status]');
-      if (b) { state.status = b.getAttribute('data-status'); load(); }
-    });
-    var ms = document.getElementById('methodSeg');
-    if (ms) ms.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-method]');
-      if (b) { state.method = b.getAttribute('data-method'); load(); }
-    });
-    var st = document.getElementById('siteSeg');
-    if (st) st.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-site]');
-      if (b) { state.site = b.getAttribute('data-site'); load(); }
-    });
-    var ps = document.getElementById('periodSeg');
-    if (ps) ps.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-period]');
-      if (!b) return;
-      state.period = b.getAttribute('data-period');
-      if (state.period === 'custom' && !state.from && !state.to) {
+    function onPick(id, apply) {
+      var box = document.getElementById(id);
+      if (box) box.addEventListener('change', function () { apply(this.value); load(); });
+    }
+    onPick('periodSel', function (v) {
+      state.period = v;
+      if (v === 'custom' && !state.from && !state.to) {
         /* Open on the last seven days rather than an empty pair of boxes. */
         var d = new Date(); state.to = ymd(d);
         d.setDate(d.getDate() - 6); state.from = ymd(d);
       }
-      load();
     });
+    onPick('methodSel', function (v) { state.method = v; });
+    onPick('siteSel', function (v) { state.site = v; });
     ['dFrom', 'dTo'].forEach(function (id) {
       var box = document.getElementById(id);
       if (box) box.addEventListener('change', function () {

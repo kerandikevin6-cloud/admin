@@ -70,20 +70,41 @@
         stats.settlementRate >= 85 ? 'pos' : 'neg') +
     '</div>';
 
-    /* ---- 14-day bars, flat colour ---- */
+    /* ---- 14-day line chart: deposits as a filled area, withdrawals as
+       a line over it. Each day has a hover column with its figures. ---- */
     var peak = Math.max(1, Math.max.apply(null, daily.map(function (d) {
       return Math.max(d.depositsMinor, d.withdrawalsMinor);
     })));
-    var bars = '<div class="bars">' + daily.map(function (d) {
-      var label = new Date(d.t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-      return '<div class="bar-col" title="' + label + ' \u2014 in ' +
-          A.shortMoney(d.depositsMinor, 'KES') + ', out ' +
-          A.shortMoney(d.withdrawalsMinor, 'KES') + '">' +
-        '<div class="bar" style="height:' + Math.round(d.depositsMinor / peak * 100) + '%"></div>' +
-        '<div class="bar alt" style="height:' + Math.round(d.withdrawalsMinor / peak * 100) + '%"></div>' +
-        '<div class="bar-x">' + new Date(d.t).getDate() + '</div>' +
-      '</div>';
-    }).join('') + '</div>' +
+    var W = 100, H = 100, n = Math.max(1, daily.length - 1);
+    function pts(key) {
+      return daily.map(function (d, i) {
+        return (daily.length === 1 ? W / 2 : i / n * W).toFixed(2) + ',' +
+          (H - d[key] / peak * H * 0.92).toFixed(2);
+      });
+    }
+    var inPts = pts('depositsMinor'), outPts = pts('withdrawalsMinor');
+    var grid = [0.25, 0.5, 0.75, 1].map(function (f) {
+      return '<div class="lc-grid" style="bottom:' + (f * 92) + '%">' +
+        '<span>' + A.shortMoney(peak * f, 'KES') + '</span></div>';
+    }).join('');
+    var bars = '<div class="lc">' +
+      '<div class="lc-plot">' + grid +
+        '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+          '<polygon class="lc-area" points="0,' + H + ' ' + inPts.join(' ') + ' ' + W + ',' + H + '"/>' +
+          '<polyline class="lc-in" points="' + inPts.join(' ') + '"/>' +
+          '<polyline class="lc-out" points="' + outPts.join(' ') + '"/>' +
+        '</svg>' +
+        '<div class="lc-hits">' + daily.map(function (d) {
+          var label = new Date(d.t).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+          return '<div title="' + label + ' — in ' +
+            A.shortMoney(d.depositsMinor, 'KES') + ', out ' +
+            A.shortMoney(d.withdrawalsMinor, 'KES') + '"></div>';
+        }).join('') + '</div>' +
+      '</div>' +
+      '<div class="lc-x">' + daily.map(function (d) {
+        return '<span>' + new Date(d.t).getDate() + '</span>';
+      }).join('') + '</div>' +
+    '</div>' +
     '<div class="legend" style="margin-top:14px">' +
       '<span><i class="a"></i>Deposits</span><span><i class="b"></i>Withdrawals</span>' +
     '</div>';

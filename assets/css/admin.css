@@ -227,6 +227,21 @@ td.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .legend i{width:10px;height:10px;display:block}
 .legend i.a{background:var(--purple)} .legend i.b{background:var(--purple-pale)}
 
+/* Dashboard line chart. The SVG stretches to the box; strokes keep
+   their width however wide it gets. */
+.lc-plot{position:relative;height:170px;margin-left:56px;border-bottom:1px solid var(--line)}
+.lc-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.lc-area{fill:var(--purple-soft)}
+.lc-in{fill:none;stroke:var(--purple);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.lc-out{fill:none;stroke:var(--purple-pale);stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.lc-grid{position:absolute;left:0;right:0;border-top:1px dashed var(--line-soft)}
+.lc-grid span{position:absolute;right:100%;margin-right:8px;transform:translateY(-50%);font-size:10px;color:var(--muted);white-space:nowrap;font-family:var(--mono)}
+.lc-hits{position:absolute;inset:0;display:flex}
+.lc-hits div{flex:1}
+.lc-hits div:hover{background:linear-gradient(var(--purple-line),var(--purple-line)) center/1px 100% no-repeat}
+.lc-x{display:flex;justify-content:space-between;margin:6px 0 0 56px;font-size:10px;color:var(--muted)}
+.field select{cursor:pointer;padding-right:2px}
+
 /* ---------------- modal ----------------
    Centred, narrow, and it never scrolls the page behind it. The body
    scrolls inside itself so a long error is readable without the footer
