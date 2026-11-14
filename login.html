@@ -52,7 +52,7 @@
   var A = window.Admin;
 
   /* Already signed in? Nothing to do here. */
-  if (A.session()) { location.replace('index.html'); return; }
+  if (A.session()) { location.replace('/'); return; }
 
   var form = document.getElementById('signinForm');
   var email = document.getElementById('email');
@@ -145,7 +145,7 @@
     }
 
     go.innerHTML = A.loader('sm') + 'Opening console';
-    location.replace('index.html');
+    location.replace('/');
   });
 })();
 </script>

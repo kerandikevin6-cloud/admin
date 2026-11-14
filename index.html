@@ -53,7 +53,7 @@
       page.innerHTML = A.card('Dashboard',
         A.emptyBlock('Nothing has happened yet',
           'Once people sign up and money starts moving, this is where it is summarised.',
-          '<a class="btn btn-ghost btn-sm" href="users.html">Open users</a>'), '', true);
+          '<a class="btn btn-ghost btn-sm" href="/users">Open users</a>'), '', true);
       return;
     }
 
@@ -130,14 +130,14 @@
         A.card('Payouts waiting',
           A.table([{ label: 'Customer' }, { label: 'Amount', right: true },
                    { label: 'Waiting', right: true }], waiting),
-          '<a class="btn btn-ghost btn-sm" href="withdrawals.html">Open queue</a>', true) +
+          '<a class="btn btn-ghost btn-sm" href="/withdrawals">Open queue</a>', true) +
       '</div>' +
       A.card('Recent deposits',
         A.table([
           { label: 'Customer' }, { label: 'Method' }, { label: 'Amount', right: true },
           { label: 'Status', right: true }, { label: 'When', right: true }
         ], recent),
-        '<a class="btn btn-ghost btn-sm" href="payments.html">See all</a>', true) +
+        '<a class="btn btn-ghost btn-sm" href="/payments">See all</a>', true) +
       (A.data.live ? '' :
         '<div class="foot-note">Mock data held in the browser. ' +
         'Set apiBase in assets/js/config.js to read from the API.</div>');

@@ -75,7 +75,7 @@
          sign in rather than showing a screen of failed panels. */
       setToken(null);
       try { sessionStorage.removeItem('nexas.admin.session'); } catch (e) {}
-      if (!/login\.html$/.test(location.pathname)) location.replace('login.html');
+      if (!/\/login(\.html)?$/.test(location.pathname)) location.replace('/login');
       throw fail('Session expired', about);
     }
 

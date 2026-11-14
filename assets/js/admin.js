@@ -178,7 +178,7 @@
   async function signOut() {
     if (API.live) { try { await API.signOut(); } catch (e) {} }
     try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
-    location.replace('login.html');
+    location.replace('/login');
   }
 
   /* ---------- charts ----------
@@ -431,30 +431,30 @@
   /* ---------- chrome ---------- */
   var NAV = [
     { section: 'Overview' },
-    { id: 'dashboard', label: 'Dashboard', href: 'index.html', icon: 'dash' },
-    { id: 'finances', label: 'Finances', href: 'finances.html', icon: 'chart' },
+    { id: 'dashboard', label: 'Dashboard', href: '/', icon: 'dash' },
+    { id: 'finances', label: 'Finances', href: '/finances', icon: 'chart' },
     { section: 'Manage' },
-    { id: 'users', label: 'Users', href: 'users.html', icon: 'users' },
-    { id: 'payments', label: 'Deposits', href: 'payments.html', icon: 'money' },
-    { id: 'withdrawals', label: 'Withdrawals', href: 'withdrawals.html', icon: 'payout' },
-    { id: 'verifications', label: 'Verifications', href: 'verifications.html', icon: 'shield' },
-    { id: 'tickets', label: 'Support', href: 'tickets.html', icon: 'logs' },
-    { id: 'domains', label: 'Domains', href: 'domains.html', icon: 'globe' },
-    { id: 'copykeys', label: 'Copy keys', href: 'copy-keys.html', icon: 'key',
+    { id: 'users', label: 'Users', href: '/users', icon: 'users' },
+    { id: 'payments', label: 'Deposits', href: '/payments', icon: 'money' },
+    { id: 'withdrawals', label: 'Withdrawals', href: '/withdrawals', icon: 'payout' },
+    { id: 'verifications', label: 'Verifications', href: '/verifications', icon: 'shield' },
+    { id: 'tickets', label: 'Support', href: '/tickets', icon: 'logs' },
+    { id: 'domains', label: 'Domains', href: '/domains', icon: 'globe' },
+    { id: 'copykeys', label: 'Copy keys', href: '/copy-keys', icon: 'key',
       roles: ['super_admin', 'admin', 'manager', 'operator'] },
     { section: 'Growth' },
-    { id: 'sessions', label: 'Sessions', href: 'sessions.html', icon: 'live' },
+    { id: 'sessions', label: 'Sessions', href: '/sessions', icon: 'live' },
     { section: 'System' },
-    { id: 'logs', label: 'Logs', href: 'logs.html', icon: 'logs' },
+    { id: 'logs', label: 'Logs', href: '/logs', icon: 'logs' },
     /* Behind the same roles as anything else that spends money or sends
        something outward: the bench can put a real text on a real phone. */
-    { id: 'tests', label: 'Test bench', href: 'tests.html', icon: 'flask',
+    { id: 'tests', label: 'Test bench', href: '/tests', icon: 'flask',
       roles: ['super_admin', 'manager'] },
     { section: 'Team' },
     /* Only a super admin can make another admin. The nav hides it for
        everyone else, and the page checks again on open, a hidden link
        is tidiness, not a control. */
-    { id: 'admins', label: 'Admins', href: 'admins.html', icon: 'shield',
+    { id: 'admins', label: 'Admins', href: '/admins', icon: 'shield',
       roles: ['super_admin', 'manager'] }
   ];
 
@@ -462,7 +462,7 @@
      a page script can stop rather than rendering into nothing. */
   function mountChrome() {
     var operator = session();
-    if (!operator) { location.replace('login.html'); return false; }
+    if (!operator) { location.replace('/login'); return false; }
 
     var page = document.body.getAttribute('data-page');
     var title = document.body.getAttribute('data-title') || '';
@@ -489,7 +489,7 @@
       '<div class="rail-foot">' +
         (Data.live ? '' :
           '<div class="rail-source">No API configured</div>') +
-        '<a class="rail-me' + (page === 'profile' ? ' on' : '') + '" href="profile.html">' +
+        '<a class="rail-me' + (page === 'profile' ? ' on' : '') + '" href="/profile">' +
           '<i>' + initials(operator.name) + '</i>' +
           '<span><b>' + esc(operator.name) + '</b>' +
           '<span>' + esc(roleLabel(operator.role)) + '</span></span>' +
