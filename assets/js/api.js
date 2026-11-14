@@ -433,6 +433,19 @@
       return out.session;
     },
 
+    hosts: async function () {
+      var out = await call('/admin/hosts');
+      return out.hosts || [];
+    },
+    createHost: async function (body) {
+      var out = await call('/admin/hosts', { method: 'POST', body: body });
+      return out.host;
+    },
+    updateHost: async function (id, patch) {
+      var out = await call('/admin/hosts/' + encodeURIComponent(id), { method: 'PATCH', body: patch });
+      return out.host;
+    },
+
     staff: async function () {
       var out = await call('/admin/staff');
       return (out.staff || []).map(function (x) {

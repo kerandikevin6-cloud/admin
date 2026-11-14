@@ -23,6 +23,9 @@
   var page = document.getElementById('page');
   var sessions = [];
   var domains = [];
+  var hosts = [];
+  /* Where hosts sign in to see their own sessions. */
+  var HOST_URL = location.origin + location.pathname.replace(/[^/]*$/, '') + 'host/';
   var ticker = null;
 
   function elapsed(from, to) {
@@ -38,8 +41,12 @@
   async function load() {
     page.innerHTML = A.loadingBlock('Loading sessions');
     try {
-      var out = await Promise.all([A.data.sessions(), A.data.domains()]);
-      sessions = out[0]; domains = out[1];
+      var out = await Promise.all([
+        A.data.sessions(), A.data.domains(),
+        /* Hosts need sql/023; until it is run the list is just empty. */
+        A.data.hosts().catch(function () { return []; })
+      ]);
+      sessions = out[0]; domains = out[1]; hosts = out[2];
     } catch (err) {
       page.innerHTML = A.errorBlock(err.message, 'retry');
       document.getElementById('retry').addEventListener('click', load);
@@ -50,7 +57,7 @@
 
   function render() {
     var s = live();
-    page.innerHTML = (s ? activeCard(s) : startCard()) + history();
+    page.innerHTML = (s ? activeCard(s) : startCard()) + history() + hostsCard();
     wire();
 
     /* One interval, cleared on every render, so a re-render cannot leave
@@ -118,7 +125,16 @@
                 .map(function (c) { return '<option>' + c + '</option>'; }).join('') +
             '</select></div></div>' +
           '<div class="field-block"><label for="handler">Who is running it</label>' +
-            '<div class="field"><input id="handler" placeholder="Name of the host"></div>' +
+            (activeHosts().length
+              ? '<div class="field"><select id="hostPick">' +
+                  activeHosts().map(function (h) {
+                    return '<option value="' + A.esc(h.id) + '">' + A.esc(h.name) + '</option>';
+                  }).join('') +
+                  '<option value="">Someone without a host login</option>' +
+                '</select></div>' +
+                '<div class="field" id="handlerBox" hidden style="margin-top:6px">' +
+                  '<input id="handler" placeholder="Name of the host"></div>'
+              : '<div class="field"><input id="handler" placeholder="Name of the host"></div>') +
             '<div class="field-error" id="handlerError" hidden></div></div>' +
           '<div class="field-block"><label for="spend">Paid to boost (KSh)</label>' +
             '<div class="field"><input id="spend" inputmode="decimal" placeholder="3000"></div>' +
@@ -184,6 +200,113 @@
         'Deposits are shown for context but they are customer money, not income.</div>';
   }
 
+  function activeHosts() {
+    return hosts.filter(function (h) { return h.status === 'active'; });
+  }
+
+  function hostsCard() {
+    var rows = hosts.map(function (h) {
+      var mine = sessions.filter(function (x) { return x.hostId === h.id; });
+      var earned = mine.reduce(function (a, x) { return a + x.marginMinor; }, 0);
+      return '<tr>' +
+        '<td>' + A.who(h.name, h.username) + '</td>' +
+        '<td>' + A.pill(h.status === 'active' ? 'active' : 'suspended') + '</td>' +
+        '<td class="num right">' + A.count(mine.length) + '</td>' +
+        '<td class="num right">' + A.money(earned) + '</td>' +
+        '<td class="right muted">' + (h.lastSeenAt ? A.ago(Date.parse(h.lastSeenAt)) : 'Never') + '</td>' +
+        '<td class="right">' +
+          '<button class="btn btn-ghost btn-sm" data-hostpw="' + A.esc(h.id) + '">New password</button> ' +
+          '<button class="btn btn-ghost btn-sm" data-hosttoggle="' + A.esc(h.id) + '">' +
+            (h.status === 'active' ? 'Switch off' : 'Switch on') + '</button>' +
+        '</td>' +
+      '</tr>';
+    });
+    var add = '<button class="btn btn-primary btn-sm" id="addHost">' + A.icon('plus', 15) + 'Add host</button>';
+    return A.card('Hosts', hosts.length
+        ? A.table([
+            { label: 'Host' }, { label: 'Status' }, { label: 'Sessions', right: true },
+            { label: 'Earned', right: true }, { label: 'Last signed in', right: true },
+            { label: '', right: true }
+          ], rows)
+        : A.emptyBlock('No hosts yet',
+            'Add a host to give them a login. They see their own sessions and what each one earned.'),
+        add, true) +
+      '<div class="foot-note">Hosts sign in at <b class="num">' + A.esc(HOST_URL) + '</b> ' +
+        '<button class="btn btn-ghost btn-sm" id="copyHostUrl">' + A.icon('copy', 14) + 'Copy link</button>' +
+        '<br>They see their sessions, sign-ups, deposits and earnings. They do not see the boost spend, ' +
+        'customers, or anything else in the console.</div>';
+  }
+
+  function hostDrawer(h) {
+    A.openDrawer(
+      '<div class="drawer-head">' +
+        '<div style="flex:1"><h2>' + (h ? 'New password for ' + A.esc(h.name) : 'Add a host') + '</h2>' +
+        '<p>' + (h ? 'Their old password stops working straight away.'
+                   : 'Give them the username and password to sign in at the host page.') + '</p></div>' +
+        '<button class="iconbtn" data-close aria-label="Close">' + A.icon('close', 18) + '</button>' +
+      '</div>' +
+      '<div class="drawer-body">' +
+        (h ? '' :
+          '<div class="field-block"><label for="hName">Name</label>' +
+            '<div class="field"><input id="hName" maxlength="80" placeholder="As they appear on the stream"></div></div>' +
+          '<div class="field-block"><label for="hUser">Username</label>' +
+            '<div class="field"><input id="hUser" maxlength="40" autocomplete="off" placeholder="e.g. juli"></div></div>') +
+        '<div class="field-block"><label for="hPass">Password</label>' +
+          '<div class="field"><input id="hPass" type="text" autocomplete="off" placeholder="At least 8 characters"></div>' +
+          '<span class="hint">Shown here once so you can send it to them.</span></div>' +
+        '<div class="field-error" id="hError" hidden></div>' +
+      '</div>' +
+      '<div class="drawer-foot">' +
+        '<button class="btn btn-primary btn-sm" data-act="saveHost">' + (h ? 'Set password' : 'Add host') + '</button>' +
+        '<button class="btn btn-ghost btn-sm" id="cancelHost">Cancel</button>' +
+      '</div>');
+    document.getElementById('cancelHost').addEventListener('click', A.closeAll);
+
+    var pass = document.getElementById('hPass');
+    pass.value = Math.random().toString(36).slice(2, 7) + Math.random().toString(36).slice(2, 7);
+
+    document.querySelector('.drawer-foot').addEventListener('click', async function (e) {
+      var b = e.target.closest('[data-act="saveHost"]');
+      if (!b) return;
+      var box = document.getElementById('hError');
+      box.hidden = true;
+      b.disabled = true;
+      var username;
+      try {
+        if (h) {
+          await A.data.updateHost(h.id, { password: pass.value });
+          username = h.username;
+        } else {
+          var made = await A.data.createHost({
+            name: document.getElementById('hName').value.trim(),
+            username: document.getElementById('hUser').value.trim(),
+            password: pass.value
+          });
+          username = made.username;
+        }
+      } catch (e2) {
+        b.disabled = false;
+        box.textContent = e2.message; box.hidden = false; return;
+      }
+      /* Shown once, here, so it can be sent to the host. */
+      var details = ['Sign in: ' + HOST_URL, 'Username: ' + username,
+        'Password: ' + pass.value].join(String.fromCharCode(10));
+      document.querySelector('.drawer-body').innerHTML =
+        '<div class="sect-label">Send this to the host</div>' +
+        '<div class="ticket-body num">' + A.esc(details) + '</div>';
+      document.querySelector('.drawer-foot').innerHTML =
+        '<button class="btn btn-primary btn-sm" id="copyDetails">' + A.icon('copy', 14) + 'Copy</button>' +
+        '<button class="btn btn-ghost btn-sm" id="doneDetails">Done</button>';
+      document.getElementById('doneDetails').addEventListener('click', function (ev) {
+        ev.stopPropagation(); A.closeAll();
+      });
+      document.getElementById('copyDetails').addEventListener('click', function (ev) {
+        ev.stopPropagation(); A.copyText(details);
+      });
+      load();
+    });
+  }
+
   function err(id, msg) {
     var box = document.getElementById(id);
     if (!box) return;
@@ -193,6 +316,33 @@
   }
 
   function wire() {
+    var pick = document.getElementById('hostPick');
+    if (pick) pick.addEventListener('change', function () {
+      document.getElementById('handlerBox').hidden = !!this.value;
+    });
+    var addHost = document.getElementById('addHost');
+    if (addHost) addHost.addEventListener('click', function () { hostDrawer(null); });
+    var copyUrl = document.getElementById('copyHostUrl');
+    if (copyUrl) copyUrl.addEventListener('click', function () { A.copyText(HOST_URL); });
+    page.querySelectorAll('[data-hostpw]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.getAttribute('data-hostpw');
+        hostDrawer(hosts.filter(function (h) { return h.id === id; })[0]);
+      });
+    });
+    page.querySelectorAll('[data-hosttoggle]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        var h = hosts.filter(function (x) { return x.id === b.getAttribute('data-hosttoggle'); })[0];
+        if (!h) return;
+        b.disabled = true;
+        try {
+          await A.data.updateHost(h.id, { status: h.status === 'active' ? 'disabled' : 'active' });
+        } catch (e2) { b.disabled = false; A.toast(e2.message); return; }
+        await load();
+        A.toast(h.status === 'active' ? h.name + ' can no longer sign in' : h.name + ' can sign in again');
+      });
+    });
+
     var endBtn = document.getElementById('endSession');
     if (endBtn) endBtn.addEventListener('click', function () {
       var s = live();
@@ -240,11 +390,14 @@
     if (form) form.addEventListener('submit', async function (e) {
       e.preventDefault();
       var handler = document.getElementById('handler');
+      var pickBox = document.getElementById('hostPick');
+      var hostId = pickBox ? pickBox.value : '';
+      var hostName = hostId ? pickBox.options[pickBox.selectedIndex].text : handler.value.trim();
       var spend = document.getElementById('spend');
       var bad = null;
 
       err('handlerError', ''); err('spendError', '');
-      if (!handler.value.trim()) { err('handlerError', 'Who is hosting it?'); bad = handler; }
+      if (!hostName) { err('handlerError', 'Who is hosting it?'); bad = handler; }
       var amount = Number(String(spend.value).replace(/[^\d.]/g, ''));
       if (!amount || amount <= 0) {
         err('spendError', 'Enter what you paid to boost it'); bad = bad || spend;
@@ -258,7 +411,8 @@
       try {
         await A.data.startSession({
           channel: document.getElementById('channel').value,
-          handler: handler.value.trim(),
+          handler: hostName,
+          hostId: hostId || undefined,
           domain: document.getElementById('domain').value || undefined,
           note: document.getElementById('note').value.trim() || undefined,
           adSpendMinor: Math.round(amount * 100)

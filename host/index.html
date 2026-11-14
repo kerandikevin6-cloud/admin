@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Host dashboard</title>
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/css/admin.css">
+<style>
+  .host-top{display:flex;align-items:center;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .host-top h1{font-size:15px;margin:0;font-weight:600}
+  .host-top .spacer{flex:1}
+  .host-main{max-width:1100px;margin:0 auto}
+  .host-sub{color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<script src="../assets/js/config.js"></script>
+<div id="app"></div>
+<script>
+(function () {
+  /* The host's own page. Signs in against /host on the API with the
+     username and password an admin made on the Sessions page, and shows
+     that host's sessions only. Nothing here can reach the console. */
+  var BASE = ((window.NexasAdminConfig || {}).apiBase || '').replace(/\/+$/, '');
+  var KEY = 'nexas-host-token';
+  var app = document.getElementById('app');
+  var timer = null;
+
+  var nf0 = new Intl.NumberFormat('en-KE', { maximumFractionDigits: 0 });
+  var nf2 = new Intl.NumberFormat('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function money(minor) { return nf2.format((Number(minor) || 0) / 100) + ' KSh'; }
+  function count(n) { return nf0.format(Number(n) || 0); }
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function when(iso) {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+  }
+  function ranFor(a, b) {
+    var mins = Math.max(0, Math.floor(((b ? Date.parse(b) : Date.now()) - Date.parse(a)) / 60000));
+    var h = Math.floor(mins / 60);
+    return (h ? h + 'h ' : '') + (mins % 60) + 'm';
+  }
+  function kpi(label, value, note, tone) {
+    return '<div class="kpi"><div class="kpi-label">' + label + '</div>' +
+      '<div class="kpi-value">' + value + '</div>' +
+      (note ? '<div class="kpi-note ' + (tone || '') + '">' + note + '</div>' : '') + '</div>';
+  }
+
+  async function call(path, opts) {
+    opts = opts || {};
+    var headers = { 'Content-Type': 'application/json' };
+    var token = localStorage.getItem(KEY);
+    if (token) headers.Authorization = 'Bearer ' + token;
+    var res;
+    try {
+      res = await fetch(BASE + path, {
+        method: opts.method || 'GET', headers: headers,
+        body: opts.body ? JSON.stringify(opts.body) : undefined
+      });
+    } catch (e) {
+      throw new Error('Could not reach the server. Check your connection and try again.');
+    }
+    var out = {};
+    try { out = await res.json(); } catch (e) {}
+    if (res.status === 401) localStorage.removeItem(KEY);
+    if (!res.ok) {
+      var err = new Error((out.error && out.error.message) || 'Something went wrong');
+      err.status = res.status;
+      throw err;
+    }
+    return out;
+  }
+
+  /* ---------- sign in ---------- */
+  function signIn(message) {
+    clearInterval(timer);
+    document.body.className = 'signin-page';
+    app.innerHTML =
+      '<main class="signin"><div class="signin-card">' +
+        '<h1>Host dashboard</h1>' +
+        '<p class="signin-sub">Sign in to see your live sessions and what they earned.</p>' +
+        '<form id="f" novalidate>' +
+          '<div class="field-block"><label for="u">Username</label>' +
+            '<div class="field"><input id="u" autocomplete="username" autocapitalize="none" autofocus></div></div>' +
+          '<div class="field-block"><label for="p">Password</label>' +
+            '<div class="field"><input id="p" type="password" autocomplete="current-password"></div></div>' +
+          '<div class="field-error signin-error" id="e"' + (message ? '' : ' hidden') + '>' + esc(message || '') + '</div>' +
+          '<button class="btn btn-primary signin-go" type="submit" id="go">Sign in</button>' +
+        '</form>' +
+      '</div></main>';
+
+    document.getElementById('f').addEventListener('submit', async function (ev) {
+      ev.preventDefault();
+      var u = document.getElementById('u').value.trim();
+      var p = document.getElementById('p').value;
+      var e = document.getElementById('e');
+      var go = document.getElementById('go');
+      e.hidden = true;
+      if (!u || !p) { e.textContent = 'Enter your username and password'; e.hidden = false; return; }
+      go.disabled = true; go.textContent = 'Checking';
+      try {
+        var out = await call('/host/login', { method: 'POST', body: { username: u, password: p } });
+        localStorage.setItem(KEY, out.token);
+        load();
+      } catch (err) {
+        go.disabled = false; go.textContent = 'Sign in';
+        e.textContent = err.message; e.hidden = false;
+        document.getElementById('p').value = '';
+      }
+    });
+  }
+
+  /* ---------- dashboard ---------- */
+  async function load(quiet) {
+    if (!localStorage.getItem(KEY)) return signIn();
+    if (!quiet) {
+      document.body.className = '';
+      app.innerHTML = '<div class="host-main page"><div class="empty">Loading your sessions</div></div>';
+    }
+    var out;
+    try {
+      out = await call('/host/me');
+    } catch (err) {
+      if (err.status === 401 || err.status === 403) return signIn(err.message);
+      if (!quiet) app.innerHTML = '<div class="host-main page"><div class="empty">' + esc(err.message) +
+        ' <button class="btn btn-ghost btn-sm" id="retry">Try again</button></div></div>';
+      var r = document.getElementById('retry');
+      if (r) r.addEventListener('click', function () { load(); });
+      return;
+    }
+    render(out.host, out.sessions || []);
+  }
+
+  function render(host, sessions) {
+    var live = sessions.filter(function (s) { return s.status === 'live'; })[0];
+    var past = sessions.filter(function (s) { return s.status !== 'live'; });
+    var sum = function (list, k) { return list.reduce(function (a, s) { return a + (s[k] || 0); }, 0); };
+
+    var now = new Date();
+    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    var thisMonth = sessions.filter(function (s) { return Date.parse(s.startedAt) >= monthStart; });
+
+    var liveCard = live
+      ? '<section class="card live-card">' +
+          '<div class="card-head"><span class="live-dot"></span>' +
+            '<h2>Live now · ' + esc(live.channel) + '</h2><span class="spacer"></span>' +
+            '<span class="muted" style="font-size:12px">Running <b>' + ranFor(live.startedAt) + '</b></span></div>' +
+          '<div class="kpis" style="border:none">' +
+            kpi('Earned so far', money(live.earningsMinor), 'this session', live.earningsMinor >= 0 ? 'pos' : 'neg') +
+            kpi('Deposits', money(live.depositsMinor), count(live.depositCount) + ' deposits') +
+            kpi('New accounts', count(live.signups), 'since you went live') +
+            kpi('Trades', count(live.trades), money(live.stakeVolumeMinor) + ' staked') +
+          '</div>' +
+        '</section>'
+      : '';
+
+    var rows = past.map(function (s) {
+      return '<tr>' +
+        '<td><div class="cell-main">' + esc(s.channel) + '</div>' +
+          '<div class="cell-sub">' + when(s.startedAt) + (s.domain ? ' · ' + esc(s.domain) : '') + '</div></td>' +
+        '<td class="num right">' + ranFor(s.startedAt, s.endedAt) + '</td>' +
+        '<td class="num right">' + count(s.signups) + '</td>' +
+        '<td class="num right">' + money(s.depositsMinor) + '</td>' +
+        '<td class="num right">' + count(s.trades) + '</td>' +
+        '<td class="num right ' + (s.earningsMinor >= 0 ? 'pos' : 'neg') + '">' + money(s.earningsMinor) + '</td>' +
+      '</tr>';
+    });
+
+    document.body.className = '';
+    app.innerHTML =
+      '<header class="host-top"><div><h1>' + esc(host.name) + '</h1>' +
+        '<div class="host-sub">Your live sessions</div></div><span class="spacer"></span>' +
+        '<button class="btn btn-ghost btn-sm" id="out">Sign out</button></header>' +
+      '<div class="host-main page">' +
+        liveCard +
+        '<div class="kpis">' +
+          kpi('Total earned', money(sum(sessions, 'earningsMinor')), 'all your sessions',
+            sum(sessions, 'earningsMinor') >= 0 ? 'pos' : 'neg') +
+          kpi('Earned this month', money(sum(thisMonth, 'earningsMinor')), count(thisMonth.length) + ' sessions') +
+          kpi('Deposits', money(sum(sessions, 'depositsMinor')), count(sum(sessions, 'depositCount')) + ' deposits') +
+          kpi('New accounts', count(sum(sessions, 'signups')), count(sessions.length) + ' sessions run') +
+        '</div>' +
+        '<section class="card"><div class="card-head"><h2>Past sessions</h2></div>' +
+          (rows.length
+            ? '<div class="table-wrap"><table><thead><tr>' +
+                '<th>Session</th><th class="right">Ran for</th><th class="right">New accounts</th>' +
+                '<th class="right">Deposits</th><th class="right">Trades</th><th class="right">Earned</th>' +
+              '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>'
+            : '<div class="empty">No finished sessions yet. When a session ends it shows here.</div>') +
+        '</section>' +
+        '<div class="foot-note">Earned is what the platform made from trading during the session ' +
+          '(stakes lost less winnings paid), on real accounts only. Figures update every 30 seconds ' +
+          'while a session is live.</div>' +
+      '</div>';
+
+    document.getElementById('out').addEventListener('click', function () {
+      localStorage.removeItem(KEY); signIn();
+    });
+
+    clearInterval(timer);
+    if (live) timer = setInterval(function () { load(true); }, 30000);
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
