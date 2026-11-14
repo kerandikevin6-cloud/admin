@@ -258,7 +258,11 @@
     payments: async function (params) {
       params = Object.assign({}, params || {}, { status: 'success' });
       var out = await call('/admin/payments' + qs(params));
-      return { total: out.total, payments: (out.payments || []).map(normalisePayment) };
+      return {
+        total: out.total,
+        summary: out.summary || null,
+        payments: (out.payments || []).map(normalisePayment)
+      };
     },
 
     recheckPayment: async function (id) {

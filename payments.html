@@ -21,7 +21,45 @@
   if (!A.mountChrome()) return;   /* not signed in */
 
   var page = document.getElementById('page');
-  var state = { q: '', status: 'all', method: 'all', site: 'all' };
+  var state = { q: '', status: 'all', method: 'all', site: 'all',
+                period: 'all', from: '', to: '' };
+
+  /* The period buttons. Edges are worked out in this browser's clock, so
+     "today" is the operator's day; the week starts on Monday. Custom takes
+     two calendar dates and includes both of them. */
+  var PERIODS = [['all', 'All time'], ['day', 'Today'], ['week', 'This week'],
+                 ['month', 'This month'], ['custom', 'Custom']];
+  function ymd(d) {
+    function p(n) { return (n < 10 ? '0' : '') + n; }
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+  function range() {
+    var now = new Date();
+    var start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (state.period === 'day') return { from: start };
+    if (state.period === 'week') {
+      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      return { from: start };
+    }
+    if (state.period === 'month') return { from: new Date(now.getFullYear(), now.getMonth(), 1) };
+    if (state.period === 'custom') {
+      var out = {};
+      if (state.from) out.from = new Date(state.from + 'T00:00:00');
+      if (state.to) { var t = new Date(state.to + 'T00:00:00'); t.setDate(t.getDate() + 1); out.to = t; }
+      return out;
+    }
+    return {};
+  }
+  function periodLabel() {
+    if (state.period === 'all') return 'all time';
+    if (state.period === 'day') return 'today';
+    if (state.period === 'week') return 'this week';
+    if (state.period === 'month') return 'this month';
+    if (state.from && state.to) return state.from + ' to ' + state.to;
+    if (state.from) return 'since ' + state.from;
+    if (state.to) return 'up to ' + state.to;
+    return 'all time';
+  }
   /* The sites that share this backend. Read from the Domains page, so a
      new site shows up here as soon as it is added there. The console's
      own host is not a site anyone pays through. */
@@ -34,7 +72,7 @@
     SITES = [['all', 'Every site']].concat(hosts.map(function (h) { return [h, A.siteName(h)]; }));
     if (!loading) paint();
   }, function () {});
-  var rows = [], total = 0, loading = false, failure = null, timer = null;
+  var rows = [], total = 0, summary = null, loading = false, failure = null, timer = null;
 
   function search(value) {
     state.q = value;
@@ -49,10 +87,12 @@
         q: state.q, status: state.status,
         method: state.method,
         site: state.site,
+        from: range().from ? range().from.toISOString() : '',
+        to: range().to ? range().to.toISOString() : '',
         provider: state.method === 'mpesa' ? 'payhero' :
                   state.method === 'card' ? 'paystack' : 'all'
       });
-      rows = out.payments; total = out.total;
+      rows = out.payments; total = out.total; summary = out.summary;
     } catch (err) {
       failure = err.message;
     }
@@ -63,9 +103,29 @@
   function paint() {
     var settled = rows.filter(function (p) { return p.status === 'success'; });
     var gross = settled.reduce(function (a, p) { return a + p.amountMinor; }, 0);
+    /* The server totals the whole period; the rows on screen are only
+       the newest 120 of it. */
+    var sumMinor = summary ? summary.collectedMinor : gross;
+    var sumCount = summary ? summary.count : settled.length;
     var kpis = '<div class="kpis">' +
-      A.kpi('Collected', A.shortMoney(gross, 'KES'), 'in this view') +
-      A.kpi('Successful deposits', A.count(settled.length), 'in this view') +
+      A.kpi('Collected', A.shortMoney(sumMinor, 'KES'), periodLabel()) +
+      A.kpi('Successful deposits', A.count(sumCount), periodLabel()) +
+    '</div>';
+
+    var periods = '<div class="filters">' +
+      '<div class="seg" id="periodSeg">' +
+        PERIODS.map(function (m) {
+          return '<button data-period="' + m[0] + '" class="' + (state.period === m[0] ? 'on' : '') + '">' +
+            m[1] + '</button>';
+        }).join('') +
+      '</div>' +
+      (state.period === 'custom'
+        ? '<label class="field"><input id="dFrom" type="date" value="' + A.esc(state.from) +
+            '" max="' + ymd(new Date()) + '" aria-label="From"></label>' +
+          '<span class="muted">to</span>' +
+          '<label class="field"><input id="dTo" type="date" value="' + A.esc(state.to) +
+            '" max="' + ymd(new Date()) + '" aria-label="To"></label>'
+        : '') +
     '</div>';
 
     var filters = '<div class="filters">' +
@@ -90,7 +150,7 @@
     if (loading) body = A.loadingBlock('Loading deposits');
     else if (failure) body = A.errorBlock(failure, 'retry');
     else if (!rows.length) body = A.emptyBlock('No deposits yet',
-      state.q || state.method !== 'all' || state.site !== 'all'
+      state.q || state.method !== 'all' || state.site !== 'all' || state.period !== 'all'
         ? 'Nothing matches those filters.'
         : 'Every successful deposit shows here.');
     else body = A.table([
@@ -111,7 +171,7 @@
       '</tr>';
     }));
 
-    page.innerHTML = kpis + filters +
+    page.innerHTML = kpis + periods + filters +
       A.card(loading ? 'Deposits' : rows.length + ' of ' + total + ' deposits', body, '', true);
     wire();
   }
@@ -139,6 +199,28 @@
     if (st) st.addEventListener('click', function (e) {
       var b = e.target.closest('[data-site]');
       if (b) { state.site = b.getAttribute('data-site'); load(); }
+    });
+    var ps = document.getElementById('periodSeg');
+    if (ps) ps.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-period]');
+      if (!b) return;
+      state.period = b.getAttribute('data-period');
+      if (state.period === 'custom' && !state.from && !state.to) {
+        /* Open on the last seven days rather than an empty pair of boxes. */
+        var d = new Date(); state.to = ymd(d);
+        d.setDate(d.getDate() - 6); state.from = ymd(d);
+      }
+      load();
+    });
+    ['dFrom', 'dTo'].forEach(function (id) {
+      var box = document.getElementById(id);
+      if (box) box.addEventListener('change', function () {
+        state[id === 'dFrom' ? 'from' : 'to'] = this.value;
+        if (state.from && state.to && state.from > state.to) {
+          var t = state.from; state.from = state.to; state.to = t;
+        }
+        load();
+      });
     });
     var retry = document.getElementById('retry');
     if (retry) retry.addEventListener('click', load);
