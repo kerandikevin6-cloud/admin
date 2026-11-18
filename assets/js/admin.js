@@ -125,7 +125,9 @@
     'zovianbinary.com': { name: 'Zovian', cls: 'zovian', color: '#0F9D58' },
     'zenikbinary.com': { name: 'Zenik', cls: 'zenik', color: '#DB2777' },
     'venobinary.com': { name: 'Veno', cls: 'veno', color: '#0891B2' },
-    'zavibinary.com': { name: 'Zavi', cls: 'zavi', color: '#9333EA' }
+    'zavibinary.com': { name: 'Zavi', cls: 'zavi', color: '#9333EA' },
+    'lenobinary.com': { name: 'Leno', cls: 'leno', color: '#4F46E5' },
+    'rivobinary.com': { name: 'Rivo', cls: 'rivo', color: '#E11D48' }
   };
   function siteColor(host) {
     return (SITE_LOOK[host] || { color: '#CA8A04' }).color;
